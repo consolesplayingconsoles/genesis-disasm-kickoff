@@ -59,6 +59,27 @@ in one patch's write offsets.
 4. Trusting an incomplete font map, which turned three missing glyphs into 46
    false findings about the data.
 
+## Art pass (later, Japanese ROM)
+
+Art was mapped in a second session, to lift sprites into another game.
+
+* **Compression**: a custom LZSS, not Nemesis (an early false lead). A size
+  word's top bit picks byte or word mode.
+* **Fighter art**: a two-level table of per-frame LZSS streams. The sprite-piece
+  table is a list of words that are self-relative **to the entry**, not to the
+  table base. Its pieces are 6 bytes: a tile word with flip bits, signed X and Y
+  from the feet, and a size byte. Trusted only once each frame's piece tile
+  counts summed to its art size.
+* **Portraits**: select-screen portraits are 80-tile streams, 10x8 row-major,
+  from their own table next to the loader's palette table. The big story
+  portraits are nametable-placed and look scrambled without their map.
+* **Items**: none. A whole-ROM sweep found fighters, portraits, story art, stage
+  backgrounds and hit effects; a fighting game has no pickups.
+
+What cost time: decoding addresses from the European listing against the
+Japanese ROM, a facts label that named an animation script as art, and a
+whole-ROM sweep that should have started from the decompressor's callers.
+
 ## Where this game's map lives
 
 `example-facts.py` here is the per-game facts module that came out of it:

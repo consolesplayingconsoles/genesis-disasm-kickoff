@@ -54,6 +54,21 @@ coverage, not against a remembered threshold.
 One game did and hung on mismatch; another did not verify it at all. Read the
 boot code rather than carrying the assumption between games.
 
+**"The listing says the table is at X."**
+For which ROM? The listing was made from the European release and the tools
+read the Japanese one; every address decoded as garbage. Check the hash the
+artifact was built from, and move findings between releases by signature.
+
+**"The facts module calls it the portrait art table."**
+It pointed at `$FF`-terminated byte lists: an animation script. A label is a
+hypothesis until its target decodes as what the label claims.
+
+**"The art looks scrambled, so the decoder is wrong."**
+Usually the tile order is. Sprites are column-major per hardware piece,
+portraits row-major at some width, and big screens can be deduplicated tiles
+placed by a nametable you have not found. Render several orders before doubting
+the decompressor.
+
 **"Reading the code will tell me."**
 Three times, reading gave a confidently wrong answer that one runtime
 measurement corrected on the first attempt: which byte held the controller

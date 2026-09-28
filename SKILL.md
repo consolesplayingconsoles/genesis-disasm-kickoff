@@ -234,7 +234,45 @@ way as code.
 For anything indexed per entity, get the stride from the code that computes it,
 never from how the data looks.
 
-### 10. Record anchors, not addresses
+A name in a facts module is a hypothesis until what it points at decodes. On
+the reference game a table labelled "portrait art" pointed at `$FF`-terminated
+byte lists: an animation script, not art.
+
+### 10. Find the art
+
+**Start from the decompressor's callers, not from a sweep.** Once the art
+decompressor is identified, each call site loads its source from a table a few
+instructions earlier, and the palette table for the same screen is usually next
+to it. On the reference game one select-screen call site gave the portrait
+table and its palette table in minutes.
+
+**If you do sweep**, decode at every even offset and filter hard:
+
+* Over code, a decoder happily "succeeds": the output runs to the maximum size
+  at a suspiciously high ratio (5x and up on the reference game).
+* Real streams are **contiguous**: each ends exactly where the next begins, at a
+  moderate ratio (about 1.5x to 4.5x there). Contiguity is the strongest signal.
+* A sweep still yields far more than you can identify by eye. Use it to find
+  clusters, then go back to the callers.
+
+**Render every candidate in more than one tile order.** There is no single
+correct layout:
+
+* sprites are column-major inside each hardware piece (up to 4x4 tiles);
+* portraits and backgrounds are usually row-major, at an unknown width;
+* large screens may be tile-deduplicated and placed by a separate nametable,
+  which looks scrambled in any order until you find the map.
+
+Render row-major at several widths plus column-major 4-high, side by side, and
+pick the one that reads cleanly. Greyscale is enough to see shapes; render with
+the real palette to confirm what it is.
+
+**Check a decoded layout against an independent quantity.** On the reference
+game the sprite-piece table was only trusted once each frame's piece tile counts
+summed exactly to that frame's decompressed art size. An off-by-one origin in
+the frame table produced plausible but wrong pieces until that check was run.
+
+### 11. Record anchors, not addresses
 
 Write findings as masked byte signatures with the volatile bytes wildcarded,
 not as fixed addresses. Signatures survive across regional builds; addresses do
@@ -269,6 +307,13 @@ sure you are of each. `log/example-facts.py` is the one from the reference game.
 * **Verify against observable behaviour**, not against the artifact you
   inspected. Data being correct in a table does not mean it is what the screen
   is drawing.
+* **Know which ROM every artifact was made from.** A listing, a facts module and
+  a tool can each have been built against a different regional release. Before
+  using an address from one of them, compare its ROM hash with the one you are
+  reading. If they differ, carry the finding over by signature (step 11), never
+  by address. On the reference game, addresses from a European listing were
+  decoded against the Japanese ROM and produced garbage; the loader's byte
+  signature found the right code immediately.
 
 ## Scripts
 
