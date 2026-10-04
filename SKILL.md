@@ -130,8 +130,9 @@ Note that both games used self-relative words and disagreed about the origin:
 one measured from the entry, the other from the table base. Determine which
 from the code that does the addition, never by assuming.
 
-**Bounding a table's length.** Rarely stored. Two ways that work: read entries
-while they still match the idiom's own signature, or recover the index range
+**Bounding a table's length.** Rarely stored. Ways that work: read entries
+while they still match the idiom's own signature, read until an independent
+check first fails (step 10: piece tile counts against art size), or recover the index range
 from the `andi.w #mask,dn` instructions that built the index, OR the masks
 together and divide by the entry stride. The second is better where an index is
 built from two fields, such as a state in the high bits and an event in the
@@ -266,6 +267,19 @@ correct layout:
 Render row-major at several widths plus column-major 4-high, side by side, and
 pick the one that reads cleanly. Greyscale is enough to see shapes; render with
 the real palette to confirm what it is.
+
+**Lay a whole set out before naming anything.** Render every frame of one
+character on one sheet, each labelled with its index and tile count, on a wide
+canvas with the origin drawn. On the reference game index order grouped frames
+by move class, so one sheet named every move without the animation scripts. The
+origin is the character's position, not the body's centre: a lunge draws the
+body well ahead of it, and a frame that looks empty may be off a tight canvas.
+
+**Map VRAM from the load lists, per screen.** Each pattern-load entry gives an
+art's destination tile; the compressed stream's header gives its tile count;
+the plane, sprite and scroll tables sit at the bases set in VDP registers 2, 3,
+4, 5 and 13. What no list of any level covers is free. On a platformer this
+found a 10-tile gap between two art sets that held in every zone.
 
 **Check a decoded layout against an independent quantity.** On the reference
 game the sprite-piece table was only trusted once each frame's piece tile counts

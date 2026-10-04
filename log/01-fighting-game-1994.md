@@ -80,6 +80,23 @@ What cost time: decoding addresses from the European listing against the
 Japanese ROM, a facts label that named an animation script as art, and a
 whole-ROM sweep that should have started from the decompressor's callers.
 
+## Animation pass (later, same ROM)
+
+Frames were picked for specific moves (punches, kicks, ground and air) to port
+into another game. The animation scripts are still not located.
+
+* **Frames identified by eye, from one contact sheet**: every frame of one
+  fighter rendered side by side with its index and tile count. Index order is
+  grouped by move class (stance and walk, crouch, jumps, air attacks, punches,
+  kicks, crouch attacks), so one sheet named every move needed. This is a
+  reading, not a fact from the animation table.
+* **The frame table bounds itself**: its length is not stored, and the first
+  index where the piece tile counts stop summing to the art size is the end
+  (49 frames for the first fighter).
+* **The origin is the fighter's position, not the body's centre**: a lunging
+  kick draws the body about 24px ahead of it, and two frames looked empty
+  because they fell outside a canvas sized for the standing frame.
+
 ## Where this game's map lives
 
 `example-facts.py` here is the per-game facts module that came out of it:
