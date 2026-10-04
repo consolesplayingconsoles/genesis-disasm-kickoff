@@ -11,17 +11,18 @@ Producing a patched ROM is a different job and is out of scope here.
 
 ## Read this first: how complete this skill is
 
-**Evidence base: two games**, by different developers, four years apart. A 1994
-fighting game and a 1995 licensed platformer. Both were mapped from nothing in
-a day, and the second one contradicted several things the first one taught:
+**Evidence base: three games**, by different developers. A 1994 fighting game,
+a 1995 licensed platformer and a 1991 racing game. Each was mapped from nothing
+in a day, and each contradicted something the earlier ones taught:
 
-| | game 1 | game 2 |
-|---|---|---|
-| coverage after resolving idioms | ~5% | 3.26% |
-| dispatch idioms | 3, all self-relative word tables | 3, only one of which overlapped |
-| text | custom tilemap glyphs, split alphabet | plain uppercase ASCII |
-| mid-entropy regions | mostly code | mostly uncompressed level data |
-| boot checksum | verified, hangs on mismatch | not verified at runtime |
+| | game 1 | game 2 | game 3 |
+|---|---|---|---|
+| coverage after resolving idioms | ~5% | 3.26% | 3.63% |
+| dispatch idioms | 3, all self-relative word tables | 3, only one of which overlapped | none needed: 0 unresolved on the first trace |
+| text | custom tilemap glyphs, split alphabet | plain uppercase ASCII | not examined |
+| mid-entropy regions | mostly code | mostly uncompressed level data | not examined |
+| boot checksum | verified, hangs on mismatch | not verified at runtime | valid; not tested |
+| how assets are found | decompressor call sites | level tables | a resource directory of id, pointer, size |
 
 Take that table as the real lesson: **the procedure generalised, the specifics
 did not.** Treat every byte pattern here as an example of a shape to look for,
@@ -127,8 +128,9 @@ let linear decode continue through it and do not try to read entries.
 to the entry that holds them.
 
 Note that both games used self-relative words and disagreed about the origin:
-one measured from the entry, the other from the table base. Determine which
-from the code that does the addition, never by assuming.
+one measured from the entry, the other from the table base. A third measured a
+sprite frame's tile offset from that frame's own header. Determine which from
+the code that does the addition, never by assuming.
 
 **Bounding a table's length.** Rarely stored. Ways that work: read entries
 while they still match the idiom's own signature, read until an independent
@@ -285,6 +287,35 @@ found a 10-tile gap between two art sets that held in every zone.
 game the sprite-piece table was only trusted once each frame's piece tile counts
 summed exactly to that frame's decompressed art size. An off-by-one origin in
 the frame table produced plausible but wrong pieces until that check was run.
+On the racing game the same check confirmed two sprite formats: header plus
+tile count times 32 equalled every resource's size, and each frame's tiles ended
+exactly where the next frame's began. A guess is confirmed when sizes add up
+across all entries, not when one entry renders.
+
+**Look for a resource directory.** Some engines keep every graphic and palette
+behind one table of `[id.w][pointer.l][size.w]` entries read by a single lookup
+routine, and load assets by ID. Once found, it labels the whole asset set at
+once. Reach it from the hardware side: a CRAM write is usually a DMA from a RAM
+palette buffer; find the code that fills that buffer, and the value passed to
+the routine it calls is an ID. On the racing game this beat scanning the data
+for palette-shaped runs, which gave 63 candidates and no answer.
+
+**Use screenshots as runtime evidence.** A screenshot from the operator can find
+the art when reading cannot. Measure the pixel grid first: a histogram of colour
+run lengths gives the scale (one game's capture was exactly 12 screen pixels per
+console pixel), and the commonest edge position modulo that gives the crop
+offset. Never assume a capture shows the full screen. Then, at all 64 grid
+alignments, test each 8x8 block against every ROM tile: require a one-to-one
+mapping between screen colours and tile indices, with the background as index 0.
+The matches give the tiles and the palette at once.
+
+**When the art comes from a Game Gear or Master System ROM.** A Mega Drive
+project can borrow art from another Sega system. Those tiles are 4bpp planar:
+each 8-pixel row is 4 bytes, one bit plane each, and a pixel's index takes bit
+`7-x` of each. The CPU is a Z80 (`z80dis` is a pure-Python disassembler). Find
+the VRAM loaders from the VDP data port: `out ($BE),a`, or `outi`/`otir` after
+`ld c,$BE`. Bank switching writes `$FFFF`, so a loader's source address is only
+meaningful with the bank it set.
 
 ### 11. Record anchors, not addresses
 
@@ -301,7 +332,16 @@ sure you are of each. `log/example-facts.py` is the one from the reference game.
 
 * **A constant appears in more than one place.** On the reference game a single
   logical value existed in seven separate sites. Assume duplicates until a test
-  proves otherwise.
+  proves otherwise. Data duplicates by context too: the racing game held its
+  first stage's palette twice, once for the race start and once in the stage
+  table, and a patch to one copy showed up only seconds into the race.
+* **A short absolute address can be RAM.** On the 68000 a `.w` absolute address
+  sign-extends, so `$8000` to `$FFFF` mean `$FF8000` to `$FFFFFF`. `lea $B600.w`
+  is a RAM table built at runtime, not ROM at `$00B600`.
+* **List the palette slots the code writes directly.** A colour written straight
+  to CRAM each frame (a flashing light, a cycling stripe) is not a free slot,
+  however unused the palette data makes it look. Anything painted in it flashes
+  too.
 * **An immediate byte is the last byte of the instruction**, not the address the
   disassembler prints for it. Getting this wrong points you at the high half of
   an immediate word, which reads `$00` and silently does nothing.
@@ -317,7 +357,9 @@ sure you are of each. `log/example-facts.py` is the one from the reference game.
   glyphs missing from the font map.
 * **Prefer facts the ROM confirms at runtime** over conclusions from reading
   alone. Reading code produced wrong answers three separate times where a
-  runtime measurement was right first try.
+  runtime measurement was right first try. Running an emulator or any other
+  program on the operator's machine is their call: ask first, or work from the
+  screenshots they choose to send.
 * **Verify against observable behaviour**, not against the artifact you
   inspected. Data being correct in a table does not mean it is what the screen
   is drawing.
