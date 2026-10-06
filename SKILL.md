@@ -98,6 +98,11 @@ sign the tracer is broken.
 The number that matters is not the percentage, it is the list of unresolved
 indirect call sites the tracer prints.
 
+The output JSON holds the instruction starts, a label per branch target (with
+its kind: subroutine, local branch, table), the untraced gaps, the tables it
+resolved and every data reference with the instructions that make it. Keep it:
+the listing (step 11) and the progress report (step 12) are built from it.
+
 ### 3. Identify the dispatch idiom, then re-trace
 
 Read those unresolved sites. There will be a small number of recurring shapes.
@@ -133,12 +138,18 @@ sprite frame's tile offset from that frame's own header. Determine which from
 the code that does the addition, never by assuming.
 
 **Bounding a table's length.** Rarely stored. Ways that work: read entries
-while they still match the idiom's own signature, read until an independent
-check first fails (step 10: piece tile counts against art size), or recover the index range
+while they still match the idiom's own signature, or recover the index range
 from the `andi.w #mask,dn` instructions that built the index, OR the masks
 together and divide by the entry stride. The second is better where an index is
 built from two fields, such as a state in the high bits and an event in the
 low bits.
+
+**Never take the first bad entry as the end.** Tables have empty slots in the
+middle. A fighter's frame table in game 1 had placeholder entries at 49, 50,
+54 to 57 and 81, and ran to 86: stopping at the first entry that failed an
+independent check (step 10: piece tile counts against art size) cut it at 49.
+Use such a check to judge each entry, and bound the table by the index range
+the code can produce, or by the next table's start.
 
 **When to stop.** Some sites are genuinely not statically resolvable:
 `jsr (an)` where the register comes from an object field at runtime is a
@@ -327,6 +338,103 @@ worked on both with no second codebase.
 
 Keep the result as a single per-game facts module: addresses, layouts, and how
 sure you are of each. `log/example-facts.py` is the one from the reference game.
+Whatever else it holds, give it these, because the listing and the progress
+report (step 12) read them:
+
+* the identity of every ROM used: release, size, SHA-1 (step 1);
+* `NAMES`, address to name, for every routine, table and RAM variable you have
+  read well enough to name. `emit.py` prints these in place of `sub_`/`ram_`;
+* the region map: one entry per mapped range (start, end, what it is) with a
+  confidence (`solid`: read and confirmed; `likely`: strong structural
+  evidence; `guess`).
+
+### 12. Write it up
+
+The map is only useful if someone else can rerun it. Package it so they can,
+without shipping the game, and in the same shape every time: someone who has
+read one of these repositories should find everything in the next one where
+they expect it.
+
+**No game bytes in the repository.** Every tool takes the ROM path as an
+argument; nothing assumes a folder, and the README's commands use a placeholder
+such as `<rom>`. Anything generated from the ROM that holds its bytes (the
+listing, decoded art, a patched build) goes in `build/`, which `.gitignore`
+lists. A file that holds only addresses and ranges (the trace JSON, a diff's
+region list) holds no game bytes: track it, outside `build/`, so anyone can
+check the numbers without a ROM. Third-party patches are studied, credited and
+never included.
+
+**The facts module is the source of truth.** Every address is recorded there
+(step 11), and the tools and the progress report read it. Prose may cite an
+address for orientation, but never as the only record of it: if the README or
+the notes give an address the facts module lacks, add it to the module.
+
+**The README**, with these headings, in this order:
+
+1. `# <Game> disassembly`, two sentences on what it is, then the line
+   **This repository contains no game code or data.** followed by a sentence
+   on how the reader supplies their own ROM.
+2. `## Supported version`: a table with one row per ROM used (release, size,
+   SHA-1, what it was used for: the trace target, a diff partner, a patch
+   base). A patched build is a row too, named by its base and its patch. Below
+   the table, one sentence saying whether the releases are revisions or
+   separate compiles (step 6).
+3. `## Building`: the commands, with `<rom>` for the ROM path, and what each
+   needs (Python 3, `capstone`). The trace command writes to the tracked trace
+   (`traces/<release>.json`); the listing and anything else holding game bytes
+   to `build/`.
+4. `## What is here`: a table, one row per file or folder a reader would open:
+   the facts module, the notes (in `log/`), the trace, each tool, the progress
+   script.
+5. `## Progress` (below).
+6. One section per subject the analysis covered, short, pointing at the facts
+   module and the notes: `## Engine` (dispatch idioms, unresolved sites), then
+   any of `## Text`, `## Graphics`, `## Sound` that apply.
+7. `## Third-party sources`: whose patches or translations were studied, by
+   author where known (otherwise "author unknown" and where it came from), that
+   none is included, and that the game's trademarks belong to their owners.
+8. `## Licence`: the licence by its SPDX identifier (for example
+   `GPL-3.0-or-later`), a `LICENSE` file with its text, and that it covers the
+   tools and notes, not the game.
+
+Anything the operator adds beyond that (links, credits, sections about tools
+that live elsewhere) goes after section 6 and before Third-party sources.
+
+**Bring the facts module up to step 11 first.** The report reads the
+identities, `NAMES` and the region map; if the module lacks them (findings
+still in prose, a region table in a separate file, a confidence scale of its
+own), move them into the module before writing the report, keeping its scale
+if it has one (HIGH, MED, LOW reads the same as solid, likely, guess).
+
+**A progress report from a script, not from memory.** `<tools>/progress.py`
+(`<tools>` being the folder the repository keeps its tools in, usually
+`tools/`), run from the repository root, prints measures read from the trace
+JSON and the facts module only, so it needs no ROM. Report, as
+`label  percent  detail` lines, with `-` in place of the percent where a
+measure has no total, and the release in the detail wherever the repository
+measures more than one ROM:
+
+* traced code: bytes and instructions reached, as a share of the ROM;
+* indirect call sites still unresolved, and dispatch tables resolved;
+* named routines: `NAMES` entries the trace labels as subroutines, out of
+  all the subroutines the trace labels;
+* named RAM variables: `NAMES` entries in RAM, out of the RAM addresses the
+  trace saw referenced;
+* mapped regions by confidence, and the bytes the solid and likely ones cover;
+* assets decoded, where the facts module records them: compressed blocks that
+  decode, sprite frames found and identified.
+
+Coverage alone is meaningless (step 4): it is one line among these, never the
+headline. A measure is never estimated: if its source does not exist yet, the
+line says `not recorded yet`, so the gap stays visible.
+
+Put the report in the README between `<!-- progress -->` and
+`<!-- /progress -->`, inside a code block, and keep it current with a
+pre-commit hook at `<tools>/hooks/pre-commit` that reruns the script, rewrites
+the block and stages `README.md`. Say how to enable it under the block:
+`git config core.hooksPath <tools>/hooks`, once per clone. If the trace is not
+tracked and is missing, the hook leaves the block as it is and the commit goes
+ahead.
 
 ## Rules that apply throughout
 
