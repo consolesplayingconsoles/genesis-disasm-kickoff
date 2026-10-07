@@ -29,6 +29,24 @@ Japanese and European builds differed across 500 KiB and every engine anchor
 sat at a different address, so offsets from one did not transfer to the other.
 Verify that before assuming a finding carries over.
 
+## What else is worth comparing against
+
+Anything built from the same code answers a question for free. In rough order of
+what it buys you:
+
+| source | what a diff against it gives | seen working |
+|---|---|---|
+| another language release | the script map: the differing regions **are** the text | yes |
+| another region or revision | which offsets transfer, and what the revision changed | yes |
+| a fan translation or hack patch | each patch labels the region it changes, by its own description | yes |
+| **a prototype or pre-release build** | the biggest prize when it exists: pre-release builds are often less compressed, carry debug menus, and sometimes ship the linker's symbol table. A diff against the retail build separates "what the game is" from "what shipped" | not yet |
+| another game by the same developer | shared engine code. Two unrelated games here had byte-identical boot and pad-read routines because both came from Sega's sample code | yes |
+| a later port or compilation release | sometimes the identical ROM (so nothing), sometimes a rebuild with symbols. Check the hash before assuming either | not yet |
+| an existing disassembly of the same game | not a diff, a reference. Building it tells you which revision you hold, and names everything it has already named | yes |
+
+Prototypes and ports are the two this skill has not exercised yet. Note what you
+find when you do.
+
 ## Third-party patches
 
 An IPS or BPS patch is a labelled dataset: someone else already found the thing
@@ -54,3 +72,32 @@ than as a rule. In game 1 every patch disabled the boot checksum, which told us
 the check existed and where. In game 2 a released patch simply leaves the
 checksum field stale, which tells you the opposite: that build does not verify
 it at runtime.
+
+## Cheat databases
+
+A cheat code is a labelled address: a human-readable description paired with a
+location someone else already found. `libretro/libretro-database` publishes them
+in `cht/`, one directory per system, fetchable without asking anyone:
+
+```
+cht/Sega - Mega Drive - Genesis/<game>.cht      ~2100 files
+cht/Sega - Master System - Mark III/<game>.cht   ~720 files
+```
+
+On this platform the codes are **Game Genie, so they name ROM addresses**, not
+RAM. "Start with 5 lives" points at the byte holding the starting lives, and the
+value already in the ROM confirms you decoded it correctly. That is a labelled
+pointer into code or data, for free, before reading an instruction.
+
+Two limits, both measured rather than assumed:
+
+* **Nothing about input handling.** Across 60 sampled Mega Drive files, "start"
+  appeared 113 times and every one meant "start with max energy" or "start on
+  mission 3". Actual input words were noise. For controller code, signatures
+  beat this comfortably.
+* **Per game.** A game with no file in the database gives you nothing, and plenty
+  have none.
+
+Treat it as a lead source to read, not something to build tooling around. The
+decoding (Game Genie's bit permutation) is easy to get subtly wrong from memory;
+take it from an emulator's source if you need it.
