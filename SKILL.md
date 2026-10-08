@@ -247,6 +247,50 @@ five patches identified the palettes, the sprite art, the frame and hitbox
 tables, the sound driver and PCM, and the character-select screen code, before
 any of those had been found by reading.
 
+### 7b. Reference disassemblies as a name source
+
+Sega shipped the same parts to different studios, so an unknown ROM often
+contains routines that are byte-identical to a game somebody has already taken
+apart and named. Matching against those turns anonymous code into named code
+before you read any of it, the way SDK signatures do on other platforms.
+
+**Offer these, and let the operator pick.** Cloning and building is your job,
+not theirs; the choice is theirs because it is their disk and their bandwidth.
+Present it as a checklist, clone only what is ticked, and say what each buys:
+
+| reference | what it is, and what it gives |
+|---|---|
+| `s1disasm` | Sonic 1, 1991. Sound driver and library routines, the oldest parts in the bin |
+| `s2disasm` | Sonic 2. Also carries the assembler binaries the other builds borrow |
+| `skdisasm` | Sonic 3 and Knuckles. The later engine, with a different compression set |
+| `sor-disassemblies` | Streets of Rage. A **different studio**, which is the point: it widens the parts bin beyond Sonic Team |
+| `s2smsdisasm` | Sonic 2 on Master System. The Z80 side, for when the ROM is not 68000 |
+
+They build with a bundled assembler (AS, driven by `build.lua`), with binaries
+for each host including Apple Silicon, and emit a ROM. Keep the symbol output:
+that is what turns a matched offset into a name. Without it you still learn
+*where* a shared module is, just not what it is called.
+
+Then match (`scripts/shared.py <rom> <reference>`):
+
+```
+23 shared runs, 867 bytes
+clusters:  6C000-ish <-> 72000-ish   10 runs
+longest:     70 bytes   06CCE4 <-> 071E82
+```
+
+**Read the clusters, not the individual runs.** Ten runs landing in one window
+of both ROMs is a shared module; a lone run is a coincidence. The example above
+is real: a Pico title from 1996 sharing a sound driver's per-track tick with a
+Mega Drive game from 1991, found in seconds.
+
+What this does not do yet: 68000 code embeds absolute operands, so a routine
+that references data differs between games wherever it names an address. You
+get the position-independent middle of a routine and not its ends, which is why
+867 bytes rather than whole modules. Masking those operand bytes, the way
+FLIRT-style matchers do, is the obvious next increment and nobody has built it
+here.
+
 ### 8. Solve the text encoding
 
 **Check for plain ASCII first.** It costs one grep and game 2 turned out to be
