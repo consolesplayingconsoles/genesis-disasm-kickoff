@@ -1,6 +1,6 @@
 ---
-name: smd-disassembly
-description: Disassemble and map an unknown Sega Mega Drive or Genesis ROM. Use when someone has a Mega Drive ROM and wants to know what is inside it, where the code is, how the engine dispatches, and where the tables, text and art live. Analysis only, not modding.
+name: genesis-disasm-kickoff
+description: Start a disassembly repo for an unknown Sega Mega Drive family ROM (Mega Drive, Genesis, Pico). Use when someone has one of those ROMs and wants to know what is inside it, where the code is, how the engine dispatches, and where the tables, text and art live. Produces a map and a repo, not a decompilation.
 ---
 
 # Disassembling an unknown Mega Drive ROM
