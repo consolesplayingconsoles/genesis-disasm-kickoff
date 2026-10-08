@@ -82,10 +82,34 @@ anyway, and ask again if a later step stalls on exactly that gap.
 
 ## Procedure
 
-### 1. Identity
+### 1. Identity, and whether this skill applies at all
 
-Read the header: console name, region, ROM end pointer, checksum field. Hash
-every ROM supplied so builds and findings can be tied to a specific file.
+`scripts/identify.py <rom>`
+
+Reads the console string at `$100` and says which member of the family this is,
+or refuses. The skill covers the **Mega Drive family**: the same 68000 and the
+same VDP, whatever the box was called.
+
+| console string | platform | what changes |
+|---|---|---|
+| `SEGA MEGA DRIVE` / `SEGA GENESIS` | mega-drive | nothing, this is the baseline |
+| `SEGA PICO` / `SEGA TOYS PICO` | pico | same silicon, different I/O (a pen and a page sensor instead of a pad) and different sound hardware |
+| `SEGA 32X` | refused | the 68000 side traces, but the game is mostly SH-2 |
+| `TMR SEGA` at `$7FF0` | refused | a Master System or Game Gear ROM: Z80, a different instruction set entirely |
+| anything else | refused | say so rather than guessing |
+
+Refuse early and say why. A shelf of Sega files makes the Master System case an
+easy mistake, so it is named specifically rather than falling into "not ours".
+
+It also prints the serial, region, declared ROM end and whether the header
+checksum matches. Note the title field is Shift-JIS on Japanese releases, so it
+renders as mojibake; that is the data, not a bug.
+
+**Everything after this step is platform-independent.** Tracing, entropy,
+dispatch idioms and text all work the same on a Pico ROM, because they are
+properties of the CPU rather than the console. Platform differences show up
+only where code touches hardware, and you find those the same way you find any
+hardware access: by what the code reads and writes.
 
 ### 2. First trace
 
