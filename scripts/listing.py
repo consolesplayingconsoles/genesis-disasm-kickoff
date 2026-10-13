@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
+"""Print the traced instructions in one address range, with their labels.
+
+    listing.py <rom> <trace.json> <hex start> <hex end>
+"""
 import sys, json
+if len(sys.argv) < 5:
+    sys.exit(__doc__)
 from capstone import *
 ROM=open(sys.argv[1],'rb').read()
 tr=json.load(open(sys.argv[2]))

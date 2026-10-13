@@ -28,6 +28,7 @@ Install the whole folder, not `SKILL.md` alone.
   git clone https://github.com/consolesplayingconsoles/genesis-disasm-kickoff
   bash genesis-disasm-kickoff/zip.sh
   ```
+  (`zip.sh` is in the repository, not in the zip it builds.)
   It writes `genesis-disasm-kickoff/dist/genesis-disasm-kickoff.zip`. Then ask Claude to start a
   disassembly of your game. The work runs in Claude's own workspace, so you upload your ROM there
   when it asks.

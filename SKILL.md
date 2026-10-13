@@ -158,8 +158,8 @@ hardware access: by what the code reads and writes.
 `scripts/trace.py <rom> <out.json>`
 
 Recursive descent from the 68000 vector table. Expect very low coverage on the
-first pass: on the reference game it reached **0.2%**. That is normal and not a
-sign the tracer is broken.
+first pass: on the reference game it once reached **0.2%** (the tracer now knows
+more idioms, so expect more). Low is normal and not a sign the tracer is broken.
 
 The number that matters is not the percentage, it is the list of unresolved
 indirect call sites the tracer prints.
@@ -186,8 +186,9 @@ skill.
 **A. Trampoline table.** `jmp table(pc,d0.w)` where each 4-byte entry is a
 literal `bra.w` (`$6000` + displacement), not an address. Resolve as
 `entry + 2 + sign16(disp)`. Length is not stored: read forward while the word
-at the 4-byte stride is still `$6000`. Also appears as
-`lea table.w,a1 ; jsr (a1,d4.w)`, same table, different call site.
+at the 4-byte stride is still `$6000`; a `nop ; rts` slot (`$4E714E75`) is an
+empty slot, not the end. Also appears as `lea table(pc),a1 ; jsr (a1,d4.w)`,
+same table, different call site.
 
 **B. Computed jump into unrolled code.** Identical at the call site, but the
 target is *not* a table: it is a block-copy or fill loop written out N times,
@@ -197,7 +198,17 @@ let linear decode continue through it and do not try to read entries.
 
 **C. Word-relative switch table.** `lea table,a0 ; adda.w (a0,dn.w),a0 ; jmp
 (a0)`. Entries are signed words, but relative to **the table's own base**, not
-to the entry that holds them.
+to the entry that holds them. A variant fetches the word first and adds it
+from a data register: `lea table(pc,d0.w),a2 ; move.w (a2),d0 ; lea
+table(pc),a2 ; adda.l d0,a2 ; jsr (a2)`, same table.
+
+**D. Keyed table.** `[key.w][self-relative offset.w]` pairs, scanned for the
+entry whose key matches (`0 <= value - key < k`), ended by a negative key;
+the handler is the matching entry's offset word plus its value.
+
+**Where a table ends.** A table cannot run into its own handlers: stop reading
+at the first address any entry already points at. Reading on past the end turns
+the handler code into "entries", and the walk then traces art as code.
 
 Note that both games used self-relative words and disagreed about the origin:
 one measured from the entry, the other from the table base. A third measured a
@@ -248,6 +259,10 @@ Coverage is not one-shot. Whenever you identify a screen handler, a mode table
 or a step table, pass its entry points to the tracer as extra seeds and re-run:
 
 `scripts/trace.py <rom> <out.json> 3CE12 3CF32 3D00A`
+
+Record every seed in the facts module's `SEEDS` and trace with the module
+(`trace.py <rom> traces/<release>.json tools/facts.py`): the tracked trace then
+regenerates exactly.
 
 On the reference game, the routine handling the main menu cursor was invisible
 until its step table was seeded by hand, several hours in.
@@ -487,7 +502,8 @@ addresses in the Japanese and European releases, and signature-anchored tools
 worked on both with no second codebase.
 
 Keep the result as a single per-game facts module: addresses, layouts, and how
-sure you are of each. `references/example-facts.py` is the one from the reference game.
+sure you are of each. `references/example-facts.py` shows the shape, with made-up values: keep it at
+`tools/facts.py` in the repo.
 Whatever else it holds, give it these, because the listing and the progress
 report (steps 12 and 13) read them:
 
@@ -496,7 +512,9 @@ report (steps 12 and 13) read them:
   read well enough to name. `emit.py` prints these in place of `sub_`/`ram_`;
 * the region map: one entry per mapped range (start, end, what it is) with a
   confidence (`solid`: read and confirmed; `likely`: strong structural
-  evidence; `guess`);
+  evidence; `guess`). A region says what its bytes are: never one `likely`
+  line over everything not yet read ("data"), which makes the map read 100%
+  and mean nothing;
 * for the rebuild, as they become known: `BLOCKS`, `POINTERS` and `NOT_CODE`
   (step 12).
 
@@ -518,29 +536,49 @@ game 2 the first run matched: 490 routines, 8 instructions left as `dc.w`
 **The output is generated, never edited.** The work happens in the facts
 module, and the rebuild reads it:
 
-* `NAMES`: routines, labels and data blocks take these names;
+* `NAMES`: routines, labels, RAM variables and data blocks take these names.
+  A routine starts where the trace found an entry (a call or dispatch target, a
+  seed); a name on any other code address names a label inside it;
 * `BLOCKS`: `(start, end, name, format)` per data block, `format` being what
   decodes it (`rnc`, `frames`, `palette`, `text`), `raw` when nothing does. A
   block counts in full, so check its whole range against the decoder (every
-  frame, every stream, every glyph), not one sample. Data that holds absolute
-  ROM addresses (a table of pointers) is not a block yet: like a code operand,
-  it is source only once written as labels, which the rebuild does not do;
-  self-relative and bank-relative tables move with what they point at and
-  count;
+  frame, every stream, every glyph), not one sample;
+* `PTR_TABLES`: `(start, end, name)` per table of absolute longs into the
+  ROM, written as `dc.l <label>` so it follows what it points at;
+* **only leaf assets stay binary**: art, compressed streams, palettes, samples
+  and fill count as named binary blocks (`progress.py`'s `LEAF` formats).
+  Anything with structure inside it (pointer and offset tables, sprite
+  mappings, frame headers, animation scripts, text) counts only once the
+  rebuild writes it as source, the way a finished disassembly keeps it as
+  `dc.w label-table` and macros, not as a file of bytes. A frame format that
+  mixes a mapping header with its tiles is structured: split it, or it does
+  not count;
 * `POINTERS`: instructions whose immediate is a ROM address (`move.l #$2392,`
   a handler or a table): the immediate becomes a label;
-* `NOT_CODE`: ranges the trace took for code that are data.
+* `CONSTANTS`: instructions whose immediate falls in the ROM's range but is a
+  number (a count, a mask, a VDP command); `#imm,sr` never needs one;
+* `FIELDS`: offset to name for struct fields (`obVelX` = `$10`): every
+  displacement off an address register (`$10(a0)`) prints as its field;
+  `FIELD_AT` gives an instruction its own names where the offset belongs to
+  another struct;
+* `NOT_CODE`: ranges the trace took for code that are data;
+* `SEEDS`: hand seeds (step 5), so the tracked trace can be regenerated.
 
 **The main metric is `done: equivalent source`**, and it is the one that reads
 100% only when the disassembly is finished: the share of the ROM that the
 rebuild reproduces identically AND reads as source, meaning code in named
-routines with symbolic operands (no ROM address left as a number, so an edit
-that moves code still builds) and data in named blocks of a decoded format. It
-reads 0.0% until a byte-identical rebuild exists, and a routine with one
-unexplained ROM-range immediate is not symbolic: the rebuild counts it out
-rather than guess. Never put a cheaper measure in its place because it moves
+routines where every label and operand is a name (ROM, RAM and hardware
+addresses, struct fields: no address or offset left as a number, so an edit
+that moves code or a struct still builds), leaf assets in named binary blocks,
+and structured data written as source. Plain immediates may stay numbers: an
+ID and a count look alike, so no rule can demand names for them. It reads 0.0%
+until a byte-identical rebuild exists, and a routine with one unexplained
+ROM-range immediate, unnamed label or unnamed field is not counted: the rebuild
+counts it out rather than guess. Never put a cheaper measure in its place because it moves
 faster: mapped bytes, traced code and decoded assets are real progress, and are
-reported below it (step 13).
+reported below it (step 13), and so are the gaps the main number does not
+weigh: local labels inside routines still `loc_`, and constants (object, sound
+and VDP values) still numbers.
 
 The rebuild record is what the rebuild writes: whether the output was
 identical, and one entry per block with its range, kind, name, whether code is
@@ -549,10 +587,31 @@ tracked. `scripts/progress.py`'s docstring gives the format.
 
 **Set the repo up from `template/`**: `setup.sh` (checks the user's ROM by
 SHA-1, unzips it if needed), `build.sh` (regenerates, assembles, compares,
-prints `MATCH`), `AGENTS.md` (the loop), `README.md`, and `gitignore` as
-**`.gitignore`**. Copy `scripts/rebuild.py`, `scripts/progress.py` and
-`scripts/hooks/` into the repo's `tools/` with the tracer and the readers, and
-fill the `@PLACEHOLDERS@`. The build must print `MATCH` before handing over.
+prints `MATCH`), `AGENTS.md` (the loop), `README.md`, `log/notes.md`,
+`LICENSE` (the GPL-3.0 text) and `gitignore` as **`.gitignore`**. The facts
+module is `tools/facts.py`; the trace is `traces/<release>.json` and the
+rebuild record `traces/rebuild.json`. Copy every `scripts/*.py` and
+`scripts/hooks/` into the repo's `tools/`, fill `progress.py`'s `DEFAULTS`,
+and fill the `@PLACEHOLDERS@`:
+
+* `@TITLE@`, `@RELEASE@`, `@SIZE@`, `@SHA1@`: the ROM (step 1);
+* `@FACTS@`, `@TRACE@`, `@RECORD@`: the three paths above;
+* `@FACTS_ARGS@`: extra `rebuild.py` arguments when the facts module names its
+  lists differently (`--names NAMES_USA` for a module keyed by release), else
+  empty;
+* `@RELEASES_NOTE@`: the sentence on revisions or separate compiles (step 6);
+* `@ENGINE@`: one or two sentences on the dispatch idioms;
+* `@SECTIONS@`: a `## Text`, `## Graphics` or `## Sound` section for each that
+  was examined, one or two sentences each, or nothing;
+* `@THIRD_PARTY@`: "The patches or translations studied: ... None is included
+  here.", or "No third-party material was used.".
+
+If the user's `python3` lacks `capstone`, `PYTHON` in `.env` names the one that
+has it (`build.sh` reads it). The build must print `MATCH` before handing over.
+What the game taught that the skill did not know goes in `log/notes.md`'s last
+section, in the evidence entry format, for the user to send back. A tracer
+change for this game (a new idiom) goes into the repo's own `tools/trace.py`;
+the installed skill is never edited.
 
 ### 13. Write it up
 
@@ -595,7 +654,7 @@ the notes give an address the facts module lacks, add it to the module.
 5. `## Progress` (below).
 6. One section per subject the analysis covered, short, pointing at the facts
    module and the notes: `## Engine` (dispatch idioms, unresolved sites), then
-   any of `## Text`, `## Graphics`, `## Sound` that apply.
+   any of `## Text`, `## Graphics`, `## Sound` that apply (`@SECTIONS@`).
 7. `## Third-party sources`: whose patches or translations were studied, by
    author where known (otherwise "author unknown" and where it came from), that
    none is included, and that the game's trademarks belong to their owners.
@@ -708,10 +767,11 @@ ahead.
 | script | what it does |
 |---|---|
 | `trace.py` | recursive-descent 68000 tracer, resolves known dispatch idioms, takes manual seeds |
-| `emit.py` | labelled, symbolised listing plus a structure map from a trace |
+| `emit.py` | labelled, symbolised listing plus a structure map from a trace; the facts module's names when given |
 | `listing.py` | dump one address range from an existing trace |
-| `mapdump.py` | coarse entropy and decodability map of a whole ROM |
+| `mapdump.py` | coarse map of a whole ROM: runs of code, data, packed and empty blocks, with their entropy |
 | `xref.py` | find self-relative words pointing at an address |
+| `callers.py` | traced instructions that name an address: calls, branches, PC-relative, absolute (RAM too), immediates |
 | `ips.py` | summarise which regions a patch writes |
 | `ips_apply.py` | apply a patch, so the analysis can be re-run on the result |
 | `ips_make.py` | write a patch from a base and a modified ROM |

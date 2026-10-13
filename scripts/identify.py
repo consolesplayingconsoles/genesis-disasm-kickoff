@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Step 1: say what this file is, before anything else runs.
 
-    identify.py <rom>
+    identify.py <rom, or a .zip holding it>
 
 This skill covers the Mega Drive FAMILY: the same 68000 and VDP, whatever the
 box was called. That is more than one console, and they are told apart by the
@@ -23,11 +23,11 @@ FAMILY = [
     ("SEGA GENESIS",    "mega-drive"),
     ("SEGA TOYS PICO",  "pico"),
     ("SEGA PICO",       "pico"),
+    ("SEGA SSF",        "mega-drive"),   # the SSF bank-switching mapper header: still a Mega Drive game
 ]
 OUT_OF_SCOPE = {
     "SEGA 32X": "a 32X ROM: Mega Drive plus two SH-2s. The 68000 side traces, "
                 "but the game's code is mostly SH-2 and this skill does not cover it.",
-    "SEGA SSF": "a 32X/SSF image, out of scope.",
 }
 
 
@@ -57,6 +57,7 @@ def identify(rom):
         "console":   console,
         "copyright": text(rom, 0x110, 16),
         "title":     text(rom, 0x120, 48),
+        "overseas":  text(rom, 0x150, 48),
         "serial":    text(rom, 0x180, 14),
         "io":        text(rom, 0x190, 16),
         "region":    text(rom, 0x1F0, 3),
@@ -70,12 +71,34 @@ def identify(rom):
     return platform, head
 
 
+def load(path):
+    """The ROM's bytes: from a .zip (its largest file), and de-interleaved if it is a .smd dump
+    (512-byte copier header, then 16 KiB blocks of odd bytes then even bytes)."""
+    if path.lower().endswith(".zip"):
+        import zipfile
+        z = zipfile.ZipFile(path)
+        info = max(z.infolist(), key=lambda i: i.file_size)
+        rom, path = z.read(info), info.filename
+    else:
+        rom = open(path, "rb").read()
+    if len(rom) % 0x4000 == 0x200 and b"SEGA" not in rom[0x100:0x110]:
+        body, out = rom[0x200:], bytearray()
+        for b in range(0, len(body), 0x4000):
+            blk = body[b:b + 0x4000]
+            for i in range(0x2000):
+                out += bytes((blk[0x2000 + i], blk[i]))
+        print("(interleaved .smd dump: de-interleaved; convert it to a plain .bin before tracing)")
+        rom = bytes(out)
+    return rom
+
+
 if __name__ == "__main__":
-    rom = open(sys.argv[1], "rb").read()
+    rom = load(sys.argv[1])
     platform, h = identify(rom)
     print("platform   : %s" % platform)
     print("console    : %s" % h["console"])
     print("title      : %s" % h["title"])
+    print("overseas   : %s" % h["overseas"])
     print("serial     : %s   region %s" % (h["serial"], h["region"]))
     print("I/O support: %s" % (h["io"] or "(blank)"))
     print("size       : %d KiB   header says ROM ends at %06X" % (len(rom) // 1024, h["rom_end"]))

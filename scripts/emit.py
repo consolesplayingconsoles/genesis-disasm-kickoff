@@ -1,12 +1,25 @@
 #!/usr/bin/env python3
-"""Emit a labelled, symbolised 68k listing from a trace."""
-import os, sys, json, re, struct
+"""Emit a labelled, symbolised 68k listing from a trace, and a structure map beside it.
+
+    emit.py <rom> <trace.json> <out.asm> [<facts.py>]
+
+With a facts module, its NAMES print in place of sub_/loc_/ram_ labels.
+"""
+import importlib.util, os, sys, json, re, struct
 from collections import defaultdict
 from capstone import *
 
 ROM = open(sys.argv[1], 'rb').read(); END = len(ROM)
 tr  = json.load(open(sys.argv[2]))
 OUT = sys.argv[3]
+NAMES = {}
+if len(sys.argv) > 4:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(sys.argv[4])))
+    _spec = importlib.util.spec_from_file_location('facts', sys.argv[4])
+    _facts = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_facts)
+    NAMES = {a & 0xFFFFFF: n for a, n in getattr(_facts, 'NAMES', {}).items()}
+TITLE = ROM[0x150:0x180].decode('ascii', 'replace').strip() or ROM[0x120:0x150].decode('ascii', 'replace').strip()
 
 md = Cs(CS_ARCH_M68K, CS_MODE_BIG_ENDIAN | CS_MODE_M68K_000)
 labels  = {int(k, 16): v for k, v in tr['labels'].items()}
@@ -20,6 +33,7 @@ HW = {0xA10000: 'IO_VERSION', 0xA10002: 'IO_DATA1', 0xA10004: 'IO_DATA2', 0xA100
       0xC00000: 'VDP_DATA', 0xC00004: 'VDP_CTRL', 0xC00008: 'VDP_HV', 0xA00000: 'Z80_RAM'}
 
 def lname(a):
+    if a in NAMES: return NAMES[a]
     k = labels.get(a, 'loc')
     p = {'sub': 'sub', 'loc': 'loc', 'jt': 'jt', 'mode': 'mode', 'table': 'tbl',
          'ptrtable': 'ptr', 'bad': 'bad'}.get(k, 'vec' if k.startswith('vector') else 'loc')
@@ -27,7 +41,7 @@ def lname(a):
 
 def sym(a, short):
     if a in HW: return HW[a]
-    if a >= 0xFF0000 or short and a >= 0xFFFF00 - 0: pass
+    if (a & 0xFFFFFF) in NAMES: return NAMES[a & 0xFFFFFF]
     if a >= 0xFF0000: return 'ram_%04X' % (a & 0xFFFF)
     if a in labels: return lname(a)
     if 0x200 <= a < END: return 'off_%06X' % a
@@ -73,7 +87,7 @@ for pc in starts:
         if a in labels: xref[a].add(pc)
 
 with open(OUT, 'w') as out:
-    out.write("; Dragon Ball Z - L'Appel du Destin (Mega Drive) — traced disassembly\n")
+    out.write("; %s (Mega Drive): traced disassembly\n" % TITLE)
     out.write('; %d instructions, %d labels, %d dispatch tables\n'
               % (len(starts), len(labels), len(tables) + len(ptables)))
     out.write('; ram_XXXX = work RAM $FFxxxx.  Untraced ranges are marked inline.\n\n')
@@ -98,16 +112,13 @@ print('wrote', OUT)
 
 # --- structure map --------------------------------------------------------
 with open(OUT.rsplit('.', 1)[0] + '-MAP.md', 'w') as m:
-    m.write('# ROM structure map\n\n## Game-mode dispatch\n\n')
-    m.write('`ram_E6A4` holds the game mode; `jsr $45e(pc,d0.w)` at 000420 dispatches it.\n\n')
+    m.write('# %s: ROM structure map\n\n## bra.w dispatch tables\n\n' % TITLE)
     for b, n in sorted(tables.items()):
         m.write('- bra.w table `%06X`, %d slots\n' % (b, n))
-    m.write('\n## Self-relative word-offset tables (the engine\'s main dispatch idiom)\n\n')
-    m.write('`lea base(pc,d0.w),a0 / adda.w (a0),a0 / jsr (a0)` — entries are signed words,\n'
-            'target = entry address + word.\n\n')
+    m.write('\n## Word-offset and pointer tables\n\n')
     for b, n in sorted(ptables.items()):
-        m.write('- `%06X` — %d entries\n' % (b, n))
+        m.write('- `%06X`: %d entries\n' % (b, n))
     ram = sorted(a for a in drefs if a >= 0xFF0000)
     m.write('\n## Work-RAM variables touched by traced code (%d)\n\n' % len(ram))
     for a in ram:
-        m.write('- `ram_%04X` — %d refs (first at %s)\n' % (a & 0xFFFF, len(drefs[a]), drefs[a][0]))
+        m.write('- `ram_%04X`: %d refs (first at %s)\n' % (a & 0xFFFF, len(drefs[a]), drefs[a][0]))

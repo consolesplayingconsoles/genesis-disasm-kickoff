@@ -130,12 +130,8 @@ into another game. The animation scripts are still not located.
 
 #### Where this game's map lives
 
-`references/example-facts.py` is the per-game facts module that came out of it:
-addresses, layouts, anchors as masked byte signatures, and a note on which
-entries were measured rather than read. `references/example-text-codec.py` is its font.
-
-Both are examples of the *shape* of a finished per-game artifact, not
-something to reuse on another ROM.
+This game's facts module and text codec live with its own repository; the skill's
+`references/example-facts.py` shows the shape only, with made-up values.
 
 #### Roster and power-up pass (later, same ROM)
 

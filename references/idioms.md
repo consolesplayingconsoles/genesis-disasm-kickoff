@@ -3,7 +3,7 @@
 A first trace stalls wherever control flow goes through data. Each shape below,
 once taught to the tracer, converts a whole class of dead ends into coverage.
 
-**Observed in two games so far**, by different developers. Only one shape
+**Observed in three games so far**, by different developers. Only one shape
 appeared in both, which is the point: expect shapes not listed here. The
 recognition method at the bottom matters more than the list.
 
@@ -71,7 +71,7 @@ Both are "self-relative word tables" and they resolve differently. Take the
 origin from the instruction that performs the addition, never from the shape of
 the data.
 
-Where the origin is the entry, Entries of `$0000` are unused slots, not the end of the table. Stop on
+Where the origin is the entry, entries of `$0000` are unused slots, not the end of the table. Stop on
 a run of entries whose targets fail a plausibility check, not on the first.
 
 This was the dominant idiom on the reference game, in both code and data. It is
@@ -94,6 +94,38 @@ jsr     (a0)
 Plain 32-bit pointers. Read while entries are even and inside the ROM. A zero
 entry can mean "this slot is disabled" rather than end of table; check how the
 caller treats it before trusting either reading.
+
+## 3b. Keyed table
+
+```
+lea     table(pc), a0
+loop:   addq.w #4, a0 ; move.w (a0), d1 ; bmi done   ; negative key ends it
+        ...           ; match when 0 <= value - key < k
+addq.w  #2, a0
+adda.w  (a0), a0
+jsr     (a0)
+```
+
+`[key.w][self-relative offset.w]` pairs: the handler is the offset word's own
+address plus its value.
+
+## 3c. Fetch-then-add word table
+
+```
+lea     table(pc, d0.w), a2
+move.w  (a2), d0
+lea     table(pc), a2
+adda.l  d0, a2
+jsr     (a2)
+```
+
+Idiom 2 measured from the base, with the add coming from a data register.
+
+## Where a table ends
+
+A table cannot run into its own handlers: stop at the first address an entry
+already points at. A `nop ; rts` (`$4E714E75`) slot in a `bra.w` table, and a
+handler that is a lone `rts`, are empty entries, not the end.
 
 ## Bounding a table's length
 

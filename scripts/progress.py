@@ -27,7 +27,10 @@ names and formats only, no game bytes:
                "format": str (data: what decodes it; "raw" when nothing does)}]}
 
 A byte counts as done only when the whole rebuild is identical and its block is named (not an
-auto label such as sub_/loc_/off_) and readable (symbolic code, decoded data).
+auto label such as sub_/loc_/off_) and readable: code symbolic; data either a leaf asset kept as
+a binary file in a decoded format (LEAF: art, compressed streams, palettes, samples, fill), or
+written by the rebuild as source ("source": true, e.g. pointer tables as dc.l labels). Data with
+structure inside it (tables, sprite mappings, frame layouts, scripts, text) counts only as source.
 
 Layout: a section title at column 0, then indented rows "label  percent  detail", "-" where a
 measure has no total. The main metric is the first row of the first section and keeps its
@@ -48,7 +51,15 @@ trace = json.load(open(sys.argv[2]))
 rebuild_path = sys.argv[3] if len(sys.argv) > 3 else None
 SIZE = facts.ROM_SIZE
 
-AUTO = re.compile(r'^(sub|loc|off|ram|unk|byte|word|dword|tbl|ptr|jt|mode|vec|bad|bin|data)_[0-9A-Fa-f]+$')
+LEAF = {'tiles', 'compressed_tiles', 'rnc', 'lzss', 'lzss_frames', 'nemesis', 'kosinski', 'palette',
+        'samples', 'pcm', 'fill'}
+
+
+def readable(b):
+    return bool(b.get('source')) or b.get('format', 'raw') in LEAF
+
+
+AUTO = re.compile(r'^(sub|loc|off|ram|unk|byte|word|dword|tbl|ptr|jt|mode|vec|bad|bin|data|code)_[0-9A-Fa-f]+$')
 
 
 def pct(a, b):
@@ -64,7 +75,7 @@ if rebuild_path:
         rb = json.load(open(rebuild_path))
     except (OSError, ValueError):
         rb = None
-main = ('  done: equivalent source', 'rebuilds byte-identical; named code with symbolic operands, named data in a decoded format')
+main = ('  done: equivalent source', 'rebuilds byte-identical; named code with every label and operand named; named leaf assets, structured data as source')
 if not rb:
     rows += [('SOURCE', '', 'no rebuild recorded yet'),
              (main[0], pct(0, SIZE), main[1]),
@@ -74,14 +85,22 @@ else:
     size = lambda b: b['end'] - b['start'] + 1
     code = [b for b in rb['blocks'] if b['kind'] == 'code']
     data = [b for b in rb['blocks'] if b['kind'] == 'data']
-    code_ok = sum(size(b) for b in code if named(b) and b.get('symbolic'))
-    data_ok = sum(size(b) for b in data if named(b) and b.get('format', 'raw') != 'raw')
+    code_ok = sum(size(b) for b in code if named(b) and b.get('symbolic')
+                  and b.get('named_labels', 0) == b.get('labels', 0))
+    data_ok = sum(size(b) for b in data if named(b) and readable(b))
+    inner = sum(b.get('labels', 0) for b in code)
+    inner_named = sum(b.get('named_labels', 0) for b in code)
+    flds = sum(b.get('fields', 0) for b in code)
+    flds_named = sum(b.get('named_fields', 0) for b in code)
     code_b, data_b = sum(size(b) for b in code), sum(size(b) for b in data)
     rows += [('SOURCE', '', '%d blocks: %d code, %d data' % (len(rb['blocks']), len(code), len(data))),
              (main[0], pct(code_ok + data_ok if rb.get('identical') else 0, SIZE), main[1]),
              ('  rebuilds byte-identical', '-', 'yes' if rb.get('identical') else 'NO: nothing counts until it does'),
-             ('  code as source', pct(code_ok, code_b), '%d of %d code bytes: named routine, symbolic operands' % (code_ok, code_b)),
-             ('  data as source', pct(data_ok, data_b), '%d of %d data bytes: named block, decoded format' % (data_ok, data_b))]
+             ('  code as source', pct(code_ok, code_b), '%d of %d code bytes: named routine, labels and operands (addresses, struct fields) named' % (code_ok, code_b)),
+             ('  data as source', pct(data_ok, data_b), '%d of %d data bytes: named leaf asset, or written as source' % (data_ok, data_b)),
+             ('  local labels named', pct(inner_named, inner), '%d of %d labels inside routines' % (inner_named, inner)),
+            ('  struct fields named', pct(flds_named, flds), '%d of %d displacements off an address register' % (flds_named, flds)),
+             ('  named constants', '-', 'not required: an ID and a count look alike')]
 
 # -- the ROM map --
 level = {'solid': 'high', 'likely': 'medium', 'guess': 'low', 'HIGH': 'high', 'MED': 'medium', 'LOW': 'low'}
@@ -100,10 +119,10 @@ rows += [('ROM MAP', '', '%d regions: %d high, %d medium, %d low confidence' % (
 
 # -- game code --
 subs = {int(a, 16) for a, k in trace['labels'].items() if k == 'sub'}
-ram = {int(a, 16) for a in trace['datarefs'] if int(a, 16) >= 0xFF0000}
+ram = {int(a, 16) & 0xFFFFFF for a in trace['datarefs'] if int(a, 16) & 0xFFFFFF >= 0xFF0000}   # .w and .l alike
 names = getattr(facts, 'NAMES', {})
 named_subs = sum(1 for a in names if a in subs)
-named_ram = sum(1 for a in names if a >= 0xFF0000)
+named_ram = sum(1 for a in names if a & 0xFFFFFF in ram)
 docs = ''.join(open(p, encoding='utf-8', errors='replace').read() for p in sorted(glob.glob('*.md') + glob.glob('log/*.md')))
 documented = sum(1 for a, n in names.items() if a in subs and n in docs)
 code = SIZE - sum(e - s for s, e in trace.get('gaps', [])) if 'gaps' in trace else trace.get('coverage_bytes', 0)
