@@ -552,7 +552,16 @@ module, and the rebuild reads it:
   rebuild writes it as source, the way a finished disassembly keeps it as
   `dc.w label-table` and macros, not as a file of bytes. A frame format that
   mixes a mapping header with its tiles is structured: split it, or it does
-  not count;
+  not count. Split every item the same way: its structured part (header,
+  pieces) and its leaf part (the tiles). The leaf part counts as soon as it is
+  named; the structured part waits until it is written as source;
+* **a list of hundreds of blocks is generated, not typed**: a small tool in the
+  repo's `tools/` decodes every item, checks it (each frame decodes to the
+  size its own header states, each group holds the frames it should), and only
+  then writes the list (addresses and names, no game bytes) to a tracked file
+  the facts module imports. Rerun it when the decoder learns more. A list that
+  was only generated is a guess; a list where every entry was checked is
+  evidence;
 * `POINTERS`: instructions whose immediate is a ROM address (`move.l #$2392,`
   a handler or a table): the immediate becomes a label;
 * `CONSTANTS`: instructions whose immediate falls in the ROM's range but is a

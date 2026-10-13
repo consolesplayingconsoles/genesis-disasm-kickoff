@@ -236,6 +236,11 @@ Art was lifted into another game: one character's sprite frames, with their pale
 * the map jumped 43 points while the code stayed 99.6% unnamed: mapped is not
   done -> the main metric is equivalent source (step 12), and the rule
   "Mapped is not done"
+* its frames mix a mapping header with their tiles, so under the leaf rule the
+  frame blocks counted for nothing (12.3% to 0.0%); a game-specific tool split
+  each of 472 frames into header and tiles, checking each one, and wrote the
+  list for the facts module: the tiles count, 0.0% to 11.6% -> step 12, the
+  split and generated-list paragraphs
 
 ### Game 3: 1 MiB racing game, 1991
 
