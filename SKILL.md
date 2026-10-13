@@ -520,7 +520,13 @@ module, and the rebuild reads it:
 
 * `NAMES`: routines, labels and data blocks take these names;
 * `BLOCKS`: `(start, end, name, format)` per data block, `format` being what
-  decodes it (`rnc`, `frames`, `palette`, `text`), `raw` when nothing does;
+  decodes it (`rnc`, `frames`, `palette`, `text`), `raw` when nothing does. A
+  block counts in full, so check its whole range against the decoder (every
+  frame, every stream, every glyph), not one sample. Data that holds absolute
+  ROM addresses (a table of pointers) is not a block yet: like a code operand,
+  it is source only once written as labels, which the rebuild does not do;
+  self-relative and bank-relative tables move with what they point at and
+  count;
 * `POINTERS`: instructions whose immediate is a ROM address (`move.l #$2392,`
   a handler or a table): the immediate becomes a label;
 * `NOT_CODE`: ranges the trace took for code that are data.

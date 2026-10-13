@@ -93,8 +93,10 @@ for r in regions:
     conf[c] += 1
     if c != 'low':
         covered.update(range(r[0], r[1] + 1))
+for r in getattr(facts, 'BLOCKS', []):           # checked whole (rebuild.py): high confidence
+    covered.update(range(r[0], r[1] + 1))
 rows += [('ROM MAP', '', '%d regions: %d high, %d medium, %d low confidence' % (len(regions), conf['high'], conf['medium'], conf['low'])),
-         ('  mapped, bytes', pct(len(covered), SIZE), 'high and medium confidence ranges')]
+         ('  mapped, bytes', pct(len(covered), SIZE), 'high and medium confidence ranges, and the data blocks')]
 
 # -- game code --
 subs = {int(a, 16) for a, k in trace['labels'].items() if k == 'sub'}
