@@ -1,0 +1,9 @@
+# Everything game-derived stays local: setup.sh and build.sh regenerate it from your own ROM.
+build/
+*.bin
+*.gen
+*.smd
+*.zip
+.env
+.idea/
+__pycache__/

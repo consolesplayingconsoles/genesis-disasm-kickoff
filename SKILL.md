@@ -1,13 +1,43 @@
 ---
 name: genesis-disasm-kickoff
-description: Start a disassembly repo for an unknown Sega Mega Drive family ROM (Mega Drive, Genesis, Pico). Use when someone has one of those ROMs and wants to know what is inside it, where the code is, how the engine dispatches, and where the tables, text and art live. Produces a map and a repo, not a decompilation.
+description: "Kick off a disassembly of a Sega Mega Drive family game (Mega Drive, Genesis, Pico): a byte-identical rebuild from source; done when every byte is named, symbolic code or named, decoded data. Use when someone has one of those ROMs and wants to know what is inside it (where the code is, how the engine dispatches, where the tables, text and art live) and wants a disassembly repo started: the engine mapped, the ROM rebuilt byte for byte from one source file per routine, ready to name and decode the rest."
 ---
 
-# Disassembling an unknown Mega Drive ROM
+# Kicking off a Mega Drive disassembly
 
-The goal is a map: which bytes are code, how the engine dispatches, which
-tables are indexed by what, how text is encoded, and where the art lives.
+The goal is a repo in the best workable state: the engine mapped (which bytes
+are code, how it dispatches, which tables are indexed by what, how text is
+encoded, where the art lives), and the ROM rebuilt byte for byte from source,
+one file per routine, every branch and reference a label. Naming and decoding
+the rest is the work that follows. The disassembly is done when every byte is
+source: named routines with symbolic operands, named data blocks in decoded
+formats (`done: equivalent source`, step 12), in a build that still matches.
 Producing a patched ROM is a different job and is out of scope here.
+
+## Getting the tools (do this first)
+
+This skill needs its own files (`scripts/`, `template/`, `references/`); the
+README's install (the zip from `zip.sh`, or a clone) brings them. If
+`scripts/trace.py` is not next to this file, only `SKILL.md` was installed:
+fetch the tools yourself, without asking (they are this skill's own public
+code, not third-party material), into a tools folder (default `~/md-tools`),
+and tell the user in one line that you did and that the README's zip install
+avoids it:
+
+```
+git clone https://github.com/consolesplayingconsoles/genesis-disasm-kickoff ~/md-tools/genesis-disasm-kickoff
+```
+
+Then use that copy for every `scripts/...`, `template/...` and `references/...`
+path below. Do not rewrite the tools from this text unless the clone is
+impossible. If it is: a tracer, an entropy mapper, a self-relative-word xref and
+an IPS reader are each a short Python file against `capstone`'s M68K backend,
+and an agent has rebuilt them from this text alone once; the idiom catalogue is
+repeated inline in step 3 for that case. Say so in your writeup.
+
+The scripts need Python 3 with `capstone` (`pip install capstone`). The rebuild
+(step 12) needs AS, Alfred Arnold's macro assembler (`asl` and `p2bin`): see
+Third-party sources.
 
 ## Read this first: how complete this skill is
 
@@ -23,6 +53,8 @@ in a day, and each contradicted something the earlier ones taught:
 | mid-entropy regions | mostly code | mostly uncompressed level data | not examined |
 | boot checksum | verified, hangs on mismatch | not verified at runtime | valid; not tested |
 | how assets are found | decompressor call sites | level tables | a resource directory of id, pointer, size |
+| ROM mapped after the art pass | 27.7% | 79.2% (one frame sweep took it from 35.8%) | not examined |
+| sprite offsets measured from | the entry holding them | the bank's start, top byte reused | the frame's own header |
 
 Take that table as the real lesson: **the procedure generalised, the specifics
 did not.** Treat every byte pattern here as an example of a shape to look for,
@@ -30,24 +62,36 @@ never as a catalogue to match against. Expect a third game to break something
 else.
 
 When the ROM does something this skill does not describe, that is the expected
-case, not a failure. Write it down in `log/` and fold the general part back
-into `references/`.
+case, not a failure. Write it down in `references/evidence.md`, in its entry
+format, and fold the general part into this procedure and the other
+references. A new dispatch idiom goes into `references/idioms.md` and
+`scripts/trace.py` too: that is what makes the next ROM cheaper.
 
-## If the scripts are missing
+## Third-party sources
 
-This skill is sometimes delivered as `SKILL.md` alone, without `scripts/`,
-`references/` or `log/`. That has already happened once in the field.
+The procedure needs the game's ROM; the rest is optional. The repositories
+below are identified solely as examples of the type of material that helps.
+The authors of this skill have no affiliation with, and make no representation
+regarding, those repositories, their contents, or their licensing. Nothing is
+retrieved without the user's express confirmation. The user is solely
+responsible for determining whether they are entitled to obtain and use any
+such material, and may substitute any equivalent material lawfully in their
+possession.
 
-If `scripts/` is not present: **rebuild what you need from the procedure
-below.** A tracer, an entropy mapper, a self-relative-word xref and an IPS
-reader are each a short Python file against `capstone`'s M68K backend, and an
-agent has already done exactly that successfully from this text alone. Say so
-in your writeup, and hand the rebuilt tools back to the operator.
+| need | example source | used for |
+|---|---|---|
+| the game's ROM | the user's own copy | everything |
+| AS (`asl`, `p2bin`) | its homepage (http://john.ccac.rwth-aachen.de:8000/as/), or the prebuilt binaries several public Mega Drive disassemblies bundle (`s2disasm`'s `build_tools/`, one folder per host) | the byte-identical rebuild (step 12) |
+| other releases of the game, optional | the user's own copies | step 6: diffs locate the text and what changed |
+| third-party patches, optional | romhacking.net and similar archives | step 7: each patch labels what it changes |
+| reference disassemblies, optional | `s1disasm`, `s2disasm`, `skdisasm` (sonicretro on GitHub), `sor-disassemblies` | step 7b: names for shared routines |
 
-The most costly thing lost in that case is the accumulated idiom catalogue, so
-the essentials are repeated inline in step 3 below.
+Ask before cloning or downloading each one. Never commit the ROM, or anything
+generated from it, to the new repo: its `.gitignore` already excludes them.
 
-## Ask the operator for more input, before starting
+## Procedure
+
+### 0. Ask for every release and patch, before starting
 
 One ROM is the worst case, not the normal case. Ask for these every time, and
 say why, because the operator usually can get them in minutes and does not know
@@ -79,8 +123,6 @@ operator only has one ROM, say what that costs before starting: the text
 encoding has to be solved the hard way, the script map is guesswork, and whole
 regions stay unlabelled that a single extra file would have named. Then start
 anyway, and ask again if a later step stalls on exactly that gap.
-
-## Procedure
 
 ### 1. Identity, and whether this skill applies at all
 
@@ -125,7 +167,8 @@ indirect call sites the tracer prints.
 The output JSON holds the instruction starts, a label per branch target (with
 its kind: subroutine, local branch, table), the untraced gaps, the tables it
 resolved and every data reference with the instructions that make it. Keep it:
-the listing (step 11) and the progress report (step 12) are built from it.
+the listing (step 11), the rebuild (step 12) and the progress report (step 13)
+are built from it.
 
 ### 3. Identify the dispatch idiom, then re-trace
 
@@ -158,7 +201,8 @@ to the entry that holds them.
 
 Note that both games used self-relative words and disagreed about the origin:
 one measured from the entry, the other from the table base. A third measured a
-sprite frame's tile offset from that frame's own header. Determine which from
+sprite frame's tile offset from that frame's own header, and game 2's player
+frames measured from the start of their whole bank (step 10). Determine which from
 the code that does the addition, never by assuming.
 
 **Bounding a table's length.** Rarely stored. Ways that work: read entries
@@ -379,6 +423,44 @@ palette buffer; find the code that fills that buffer, and the value passed to
 the routine it calls is an ID. On the racing game this beat scanning the data
 for palette-shaped runs, which gave 63 candidates and no answer.
 
+**A format that carries its own checksums makes a sweep certain.** Rob
+Northen's ProPack (RNC: the `RNC` magic, a method byte, then the unpacked and
+packed sizes and a CRC-16 of each) checks itself: a candidate that passes both
+CRCs is a block, with no judgement involved. On game 2 a sweep for the magic
+found 264 blocks, all of them CRC-clean, covering most of the ROM's art. Look
+for a checksum in any header before inventing a plausibility filter.
+
+**Sweep for frames by the header's own arithmetic.** A sprite frame header
+often states its own length: on game 2 the first word is `6 + 6 * count` and
+the second is `count`, followed by `count` 6-byte pieces. That relation is a
+signature a random word pair rarely satisfies. Filter the hits hard, then check
+them by eye:
+
+* every piece has a legal hardware size and tile indices inside the frame's
+  data;
+* candidates that overlap a stronger one (an RNC block, an earlier frame) go;
+* **single-piece candidates go**: one piece satisfies the arithmetic by chance
+  far too often;
+* render a random sample (48 there) before recording anything: all 48 were
+  real sprites, so the run list was recorded at medium confidence; one false
+  one would have meant tightening the filter, not recording it.
+
+That one sweep found 1,406 object frames in 89 runs and took game 2's mapped
+share from 35.8% to 79.2% in an afternoon. Note it maps the bytes; it does not
+name a single frame (step 12: mapped is not done).
+
+**Offsets have another origin: the bank.** After the entry, the table base and
+the frame's header (step 3), game 2's player frames measure each pointer from the start of the
+whole frame bank, and the long's top byte is not address at all but a second
+field (a literal offset, halved). Mask to 24 bits, then try bank-relative when
+both self-relative readings give garbage. Every frame decoded as "bad" until
+that was found.
+
+**One game can store frames two ways.** Game 2's player frames run-length code
+their tiles; its object frames store raw tiles. Do not conclude a format is
+wrong because it fails on one family of frames: check whether the other family
+is encoded differently.
+
 **Use screenshots as runtime evidence.** A screenshot from the operator can find
 the art when reading cannot. Measure the pixel grid first: a histogram of colour
 run lengths gives the scale (one game's capture was exactly 12 screen pixels per
@@ -405,18 +487,68 @@ addresses in the Japanese and European releases, and signature-anchored tools
 worked on both with no second codebase.
 
 Keep the result as a single per-game facts module: addresses, layouts, and how
-sure you are of each. `log/example-facts.py` is the one from the reference game.
+sure you are of each. `references/example-facts.py` is the one from the reference game.
 Whatever else it holds, give it these, because the listing and the progress
-report (step 12) read them:
+report (steps 12 and 13) read them:
 
 * the identity of every ROM used: release, size, SHA-1 (step 1);
 * `NAMES`, address to name, for every routine, table and RAM variable you have
   read well enough to name. `emit.py` prints these in place of `sub_`/`ram_`;
 * the region map: one entry per mapped range (start, end, what it is) with a
   confidence (`solid`: read and confirmed; `likely`: strong structural
-  evidence; `guess`).
+  evidence; `guess`);
+* for the rebuild, as they become known: `BLOCKS`, `POINTERS` and `NOT_CODE`
+  (step 12).
 
-### 12. Write it up
+### 12. Rebuild it byte for byte
+
+Turn the map into source and prove it:
+
+`scripts/rebuild.py <rom> <trace.json> build/src --as <AS folder> --facts <facts.py> --record traces/rebuild.json`
+
+It writes one assembly file per routine (every branch target, PC-relative and
+absolute ROM reference a label), the bytes between routines as data files split
+at every label and every known block, and a `main.asm` that puts them in
+address order. Every instruction is first assembled on its own and compared
+with its own bytes; one AS encodes differently stays as `dc.w` with the
+instruction in a comment. Then the whole ROM is assembled and compared. On
+game 2 the first run matched: 490 routines, 8 instructions left as `dc.w`
+(data the trace took for code).
+
+**The output is generated, never edited.** The work happens in the facts
+module, and the rebuild reads it:
+
+* `NAMES`: routines, labels and data blocks take these names;
+* `BLOCKS`: `(start, end, name, format)` per data block, `format` being what
+  decodes it (`rnc`, `frames`, `palette`, `text`), `raw` when nothing does;
+* `POINTERS`: instructions whose immediate is a ROM address (`move.l #$2392,`
+  a handler or a table): the immediate becomes a label;
+* `NOT_CODE`: ranges the trace took for code that are data.
+
+**The main metric is `done: equivalent source`**, and it is the one that reads
+100% only when the disassembly is finished: the share of the ROM that the
+rebuild reproduces identically AND reads as source, meaning code in named
+routines with symbolic operands (no ROM address left as a number, so an edit
+that moves code still builds) and data in named blocks of a decoded format. It
+reads 0.0% until a byte-identical rebuild exists, and a routine with one
+unexplained ROM-range immediate is not symbolic: the rebuild counts it out
+rather than guess. Never put a cheaper measure in its place because it moves
+faster: mapped bytes, traced code and decoded assets are real progress, and are
+reported below it (step 13).
+
+The rebuild record is what the rebuild writes: whether the output was
+identical, and one entry per block with its range, kind, name, whether code is
+symbolic, and data's format. Addresses and names only, no game bytes, so it is
+tracked. `scripts/progress.py`'s docstring gives the format.
+
+**Set the repo up from `template/`**: `setup.sh` (checks the user's ROM by
+SHA-1, unzips it if needed), `build.sh` (regenerates, assembles, compares,
+prints `MATCH`), `AGENTS.md` (the loop), `README.md`, and `gitignore` as
+**`.gitignore`**. Copy `scripts/rebuild.py`, `scripts/progress.py` and
+`scripts/hooks/` into the repo's `tools/` with the tracer and the readers, and
+fill the `@PLACEHOLDERS@`. The build must print `MATCH` before handing over.
+
+### 13. Write it up
 
 The map is only useful if someone else can rerun it. Package it so they can,
 without shipping the game, and in the same shape every time: someone who has
@@ -474,27 +606,34 @@ still in prose, a region table in a separate file, a confidence scale of its
 own), move them into the module before writing the report, keeping its scale
 if it has one (HIGH, MED, LOW reads the same as solid, likely, guess).
 
-**A progress report from a script, not from memory.** `<tools>/progress.py`
+**A progress report from a script, not from memory.** `scripts/progress.py
+<facts.py> <trace.json> [<rebuild.json>]`, copied to `<tools>/progress.py`
 (`<tools>` being the folder the repository keeps its tools in, usually
-`tools/`), run from the repository root, prints measures read from the trace
-JSON and the facts module only, so it needs no ROM. Report, as
-`label  percent  detail` lines, with `-` in place of the percent where a
-measure has no total, and the release in the detail wherever the repository
-measures more than one ROM:
+`tools/`, with its `DEFAULTS` filled in so it runs bare) and run from the
+repository root, prints measures read from tracked
+files only, so it needs no ROM. Extend the copy with what the game measures on
+its own (frames identified, glyphs decoded); keep the shared part as it is.
 
-* traced code: bytes and instructions reached, as a share of the ROM;
-* indirect call sites still unresolved, and dispatch tables resolved;
-* named routines: `NAMES` entries the trace labels as subroutines, out of
-  all the subroutines the trace labels;
-* named RAM variables: `NAMES` entries in RAM, out of the RAM addresses the
-  trace saw referenced;
-* mapped regions by confidence, and the bytes the solid and likely ones cover;
-* assets decoded, where the facts module records them: compressed blocks that
-  decode, sprite frames found and identified.
+**The layout is shared**, so anyone reading one of these reports reads all of
+them: a section title at column 0, then indented rows `label  percent  detail`,
+`-` in place of the percent where a measure has no total, the release in the
+section title wherever the repository measures more than one ROM. Sections, in
+this order:
 
-Coverage alone is meaningless (step 4): it is one line among these, never the
-headline. A measure is never estimated: if its source does not exist yet, the
-line says `not recorded yet`, so the gap stays visible.
+* `SOURCE`: the main metric, `done: equivalent source` (step 12), first, then whether the rebuild is
+  identical, and code and data as source;
+* `ROM MAP`: regions by confidence, and the bytes the solid and likely ones
+  cover (`mapped, bytes`);
+* `GAME CODE`: named routines (`NAMES` entries the trace labels as
+  subroutines, out of all of them), documented ones (named in a `*.md`), named
+  RAM variables out of those the trace saw referenced, traced code as a share
+  of the ROM, indirect calls still unresolved;
+* then the game's own: assets decoded (compressed blocks, frames found and
+  identified), text.
+
+Keep the main metric's label as it is: a dashboard or badge that shows the
+report finds it by that label. A measure is never estimated: if its source does
+not exist yet, the line says `not recorded yet`, so the gap stays visible.
 
 Put the report in the README between `<!-- progress -->` and
 `<!-- /progress -->`, inside a code block, and keep it current with a
@@ -504,10 +643,16 @@ the block and stages `README.md`. Say how to enable it under the block:
 tracked and is missing, the hook leaves the block as it is and the commit goes
 ahead.
 
-## Rules that apply throughout
+## Rules
 
+* **The build must match before handing over, and after every change.** A name
+  never changes bytes; a symbolic operand assembles to the same bytes or the
+  rebuild leaves it as `dc.w`.
+* **A name or a format is evidence-backed or it is not there.** Never name in
+  bulk from guesses to move the main metric: it then measures nothing.
 * **A constant appears in more than one place.** On the reference game a single
-  logical value existed in seven separate sites. Assume duplicates until a test
+  logical value existed in seven separate sites, and the power-up aura's
+  sprite frame was stored twice, at two unrelated addresses. Assume duplicates until a test
   proves otherwise. Data duplicates by context too: the racing game held its
   first stage's palette twice, once for the race start and once in the stage
   table, and a patch to one copy showed up only seconds into the race.
@@ -521,6 +666,11 @@ ahead.
 * **An immediate byte is the last byte of the instruction**, not the address the
   disassembler prints for it. Getting this wrong points you at the high half of
   an immediate word, which reads `$00` and silently does nothing.
+* **Mapped is not done.** Knowing what a byte is (art, a frame, a table) is
+  the map; having it as named, rebuildable source is the disassembly. One
+  frame sweep can map 40% of a ROM in an afternoon while the code stays 99%
+  unnamed. Report both, and never let the map stand in for the main metric
+  (step 12).
 * **Runs of `$00` inside the program area are not free space** unless
   cross-checked against the trace.
 * **Check whether boot verifies the header checksum; do not assume either way.**
@@ -560,12 +710,13 @@ ahead.
 | `ips_apply.py` | apply a patch, so the analysis can be re-run on the result |
 | `ips_make.py` | write a patch from a base and a modified ROM |
 | `tiles.py` | render a range as 4bpp tiles to a PNG, to look at art |
+| `progress.py` | the progress report (step 13): equivalent source first, then the map and the code |
+| `rebuild.py` | the ROM as source (one file per routine, labels, data files), assembled with AS and compared: MATCH, and the rebuild record (step 12) |
+| `hooks/pre-commit` | in the repo: rewrites the README's Progress block on every commit |
+| `template/setup.sh` | in the repo: check the user's ROM, then build |
+| `template/build.sh` | in the repo: regenerate the source from the facts, assemble, compare: `MATCH` |
+| `template/README.md` | the repo's README, with `@PLACEHOLDERS@` to fill |
+| `template/AGENTS.md` | the loop for whoever works in the repo: name, make symbolic, decode, build |
+| `template/gitignore` | the repo's `.gitignore`: keeps the ROM and everything generated from it out of git |
 
 They need Python 3 and `capstone` (`pip install capstone`).
-
-## When the ROM does something not described here
-
-That is the expected case. Record it in `log/` as a short note: what the shape
-was, how you recognised it, what it turned out to be. If it is a dispatch idiom,
-add it to `references/idioms.md` and to `trace.py`, because that is what makes
-the next ROM cheaper.
