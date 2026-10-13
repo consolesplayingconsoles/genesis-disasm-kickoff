@@ -1,6 +1,6 @@
 # genesis-disasm-kickoff
 
-A Claude skill that starts a disassembly of a Sega Mega Drive family game (Mega Drive, Genesis,
+A Claude skill that starts a disassembly of a Sega Mega Drive family game (Mega Drive/Genesis,
 Pico) from your own ROM.
 
 You get a repo that:

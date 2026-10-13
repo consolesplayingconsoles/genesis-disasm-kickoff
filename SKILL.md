@@ -1,6 +1,6 @@
 ---
 name: genesis-disasm-kickoff
-description: "Kick off a disassembly of a Sega Mega Drive family game (Mega Drive, Genesis, Pico): a byte-identical rebuild from source; done when every byte is named, symbolic code or named, decoded data. Use when someone has one of those ROMs and wants to know what is inside it (where the code is, how the engine dispatches, where the tables, text and art live) and wants a disassembly repo started: the engine mapped, the ROM rebuilt byte for byte from one source file per routine, ready to name and decode the rest."
+description: "Kick off a disassembly of a Sega Mega Drive family game (Mega Drive/Genesis, Pico): a byte-identical rebuild from source; done when every byte is named, symbolic code or named, decoded data. Use when someone has one of those ROMs and wants to know what is inside it (where the code is, how the engine dispatches, where the tables, text and art live) and wants a disassembly repo started: the engine mapped, the ROM rebuilt byte for byte from one source file per routine, ready to name and decode the rest."
 ---
 
 # Kicking off a Mega Drive disassembly
