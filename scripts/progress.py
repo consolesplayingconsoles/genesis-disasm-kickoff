@@ -51,7 +51,7 @@ trace = json.load(open(sys.argv[2]))
 rebuild_path = sys.argv[3] if len(sys.argv) > 3 else None
 SIZE = facts.ROM_SIZE
 
-LEAF = {'tiles', 'compressed_tiles', 'rnc', 'lzss', 'lzss_frames', 'nemesis', 'kosinski', 'palette',
+LEAF = {'tiles', 'rle_tiles', 'compressed_tiles', 'rnc', 'lzss', 'lzss_frames', 'nemesis', 'kosinski', 'palette',
         'samples', 'pcm', 'fill'}
 
 
