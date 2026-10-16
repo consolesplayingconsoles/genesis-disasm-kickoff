@@ -35,6 +35,9 @@ structure inside it (tables, sprite mappings, frame layouts, scripts, text) coun
 Layout: a section title at column 0, then indented rows "label  percent  detail", "-" where a
 measure has no total. The main metric is the first row of the first section and keeps its
 label: tools that show the report (a dashboard, a README badge) find it by that label.
+
+It also writes badge.svg (the main metric as a bar and a number) for the top of the README; the pre-commit
+hook stages it with the Progress block.
 """
 import glob, importlib.util, json, os, re, sys
 
@@ -134,5 +137,37 @@ rows += [('GAME CODE (traced)', '', '%d subroutines, %d bytes of code' % (len(su
          ('  traced code, of the ROM', pct(code, SIZE), 'the rest is art, audio and data'),
          ('  indirect calls unresolved', '-', '%d' % (unresolved if isinstance(unresolved, int) else len(unresolved)))]
 
+def write_badge(rows, label, path='badge.svg'):
+    """badge.svg beside the README: the label, a bar filled to the main metric ("done: ...") and its percentage, in
+    Pluto's colours. One metric only; the number is always printed, so colour carries no meaning on its own."""
+    done = 0.0
+    for n, p, _ in rows:
+        if n.strip().startswith('done:'):
+            try:
+                done = float(p.strip().rstrip('%'))
+            except ValueError:
+                done = 0.0
+            break
+    bar = 64
+    wd = int(round(bar * min(done, 100.0) / 100.0))
+    if done > 0 and wd < 2:
+        wd = 2
+    text = '%.1f%%' % done
+    title = '%s: %s done' % (label, text)
+    svg = ('<svg xmlns="http://www.w3.org/2000/svg" width="182" height="20" role="img" aria-label="%s">'
+           '<title>%s</title><clipPath id="r"><rect width="182" height="20" rx="3"/></clipPath>'
+           '<g clip-path="url(#r)"><rect width="52" height="20" fill="#1a2233"/><rect x="52" width="130" height="20" fill="#2a3347"/>'
+           '<rect x="60" y="6" width="%d" height="8" rx="2" fill="#ecc9b9"/>'
+           '<rect x="60" y="6" width="%d" height="8" rx="2" fill="#c87053"/></g>'
+           '<g fill="#fff" font-family="Verdana,DejaVu Sans,sans-serif" font-size="11" text-anchor="middle">'
+           '<text x="26" y="14">%s</text><text x="154" y="14">%s</text></g></svg>\n'
+           % (title, title, bar, wd, label, text))
+    try:
+        open(path, 'w').write(svg)
+    except OSError:
+        pass
+
+
+write_badge(rows, 'disasm')
 for label, p, rest in rows:
     print(('%-30s %6s  %s' % (label, p, rest)).rstrip())
