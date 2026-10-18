@@ -11,6 +11,8 @@ You get a repo that:
   text encoding and the art, each recorded in a facts module with how sure it is;
 * measures how far along it is with one main number, `done: equivalent source`: the share of the
   ROM that is named, symbolic code and named, decoded data, in a build that still matches;
+  blocks that decode but are not identified yet, or known programs not yet source, get their own
+  "recognised, not counted" row and stay out of it;
 * describes the loop for naming and decoding the rest, with the build checking every step;
 * contains **no game code or data**: everything game-derived is generated from your ROM.
 

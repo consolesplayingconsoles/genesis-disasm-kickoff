@@ -41,6 +41,10 @@ code or decoded art are progress, reported below it, not the goal.
    data the trace took for code (`NOT_CODE`).
 4. **Data**: give each block between routines a name and a format in `BLOCKS`, once a tool here
    decodes it (compressed art, sprite frames, palettes, text, tables).
+   A block a tool decodes but you have not identified, or a known program that is not source yet,
+   takes the format `recognised_<format>` (`recognised_rnc`, `recognised_z80`): it is reported on its
+   own row and never counts toward the main figure. Name the blocks `rnc_<address>` so every routine
+   that loads one shows it, then identify the most-loaded ones first.
 5. `bash build.sh`: `MATCH`, then `python3 tools/progress.py`. Commit; the pre-commit hook writes
    the report into the README.
 

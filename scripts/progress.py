@@ -32,6 +32,10 @@ a binary file in a decoded format (LEAF: art, compressed streams, palettes, samp
 written by the rebuild as source ("source": true, e.g. pointer tables as dc.l labels). Data with
 structure inside it (tables, sprite mappings, frame layouts, scripts, text) counts only as source.
 
+A block whose format starts with "recognised_" (recognised_rnc: it decodes, its content is not
+identified; recognised_z80: a known program, not yet written as source) is not LEAF: its bytes get
+their own "recognised, not counted" row and stay out of the main figure.
+
 Layout: a section title at column 0, then indented rows "label  percent  detail", "-" where a
 measure has no total. The main metric is the first row of the first section and keeps its
 label: tools that show the report (a dashboard, a README badge) find it by that label.
@@ -91,6 +95,8 @@ else:
     code_ok = sum(size(b) for b in code if named(b) and b.get('symbolic')
                   and b.get('named_labels', 0) == b.get('labels', 0))
     data_ok = sum(size(b) for b in data if named(b) and readable(b))
+    recog_blocks = [b for b in data if b.get('format', '').startswith('recognised_')]
+    recog, recog_n = sum(size(b) for b in recog_blocks), len(recog_blocks)
     inner = sum(b.get('labels', 0) for b in code)
     inner_named = sum(b.get('named_labels', 0) for b in code)
     flds = sum(b.get('fields', 0) for b in code)
@@ -101,6 +107,7 @@ else:
              ('  rebuilds byte-identical', '-', 'yes' if rb.get('identical') else 'NO: nothing counts until it does'),
              ('  code as source', pct(code_ok, code_b), '%d of %d code bytes: named routine, labels and operands (addresses, struct fields) named' % (code_ok, code_b)),
              ('  data as source', pct(data_ok, data_b), '%d of %d data bytes: named leaf asset, or written as source' % (data_ok, data_b)),
+             ('  recognised, not counted', pct(recog, SIZE), '%d bytes, %d blocks: a known format or program, content not yet identified or not yet written as source; not in the figures above' % (recog, recog_n)),
              ('  local labels named', pct(inner_named, inner), '%d of %d labels inside routines' % (inner_named, inner)),
             ('  struct fields named', pct(flds_named, flds), '%d of %d displacements off an address register' % (flds_named, flds)),
              ('  named constants', '-', 'not required: an ID and a count look alike')]

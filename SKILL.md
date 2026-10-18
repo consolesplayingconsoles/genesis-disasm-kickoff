@@ -545,6 +545,16 @@ module, and the rebuild reads it:
   frame, every stream, every glyph), not one sample;
 * `PTR_TABLES`: `(start, end, name)` per table of absolute longs into the
   ROM, written as `dc.l <label>` so it follows what it points at;
+* **recognised is a stepping stone, never a claim**: a block whose format a tool
+  decodes (every RNC block with a matching checksum, say) but whose content is
+  not identified, or a known program that is not source yet (a Z80 driver the 68000
+  copies to Z80 RAM, `recognised_z80`), takes a `recognised_<format>` format (`recognised_rnc`). It is
+  not a `LEAF` format, so `progress.py` reports its bytes on their own
+  "recognised, not counted" row and keeps them out of the main figure. The row
+  earns its place by what it points at: name the blocks `rnc_<address>` in
+  `NAMES`, and every routine that loads one then shows it; a block loaded by
+  many routines is the one to identify first (decode it, render it, and give it
+  a real name and a leaf format in `BLOCKS`, with the evidence in a comment);
 * **only leaf assets stay binary**: art, compressed streams, palettes, samples
   and fill count as named binary blocks (`progress.py`'s `LEAF` formats).
   Anything with structure inside it (pointer and offset tables, sprite
@@ -695,7 +705,8 @@ section title wherever the repository measures more than one ROM. Sections, in
 this order:
 
 * `SOURCE`: the main metric, `done: equivalent source` (step 12), first, then whether the rebuild is
-  identical, and code and data as source;
+  identical, code and data as source, and `recognised, not counted` (blocks of a known format
+  or program whose content is not identified or not yet source: shown, never in the main figure);
 * `ROM MAP`: regions by confidence, and the bytes the solid and likely ones
   cover (`mapped, bytes`);
 * `GAME CODE`: named routines (`NAMES` entries the trace labels as

@@ -152,6 +152,20 @@ This game's facts module and text codec live with its own repository; the skill'
 * the progress report put the map first, and a mapped share is not completion
   -> step 12: equivalent source is the main metric
 
+#### Sound driver pass (later, same ROM)
+
+The 68000 routine that copies a program to Z80 RAM states the program's length in its loop count;
+a block of exactly that size sits where the source address points (8008 bytes both). That is exact
+evidence for a Z80 driver, tagged `recognised_z80` (known program, not yet source). The 200 KB
+after the sound code is eight 32 KB-aligned banks that no 68000 routine points at, which is the
+shape of banks the Z80 reads through its window; unconfirmed without reading the Z80 code.
+
+Negative: the game's own LZSS decoder accepts almost any bytes (it "decodes" blocks as 7-byte
+streams), so a clean decode is not evidence of the format; format evidence has to come from code
+that loads the block.
+
+* a decoder that never rejects is not a detector -> format comes from the loading routine, not from a scan
+
 ### Game 2: 4 MiB licensed platformer, 1995/96
 
 Mapped by a different agent session from `SKILL.md` alone. Its own full write-up
@@ -241,6 +255,25 @@ Art was lifted into another game: one character's sprite frames, with their pale
   each of 472 frames into header and tiles, checking each one, and wrote the
   list for the facts module: the tiles count, 0.0% to 11.6% -> step 12, the
   split and generated-list paragraphs
+
+#### Recognised row pass (later, same ROM)
+
+All 264 RNC blocks decode with a matching checksum, yet counted for nothing in the main figure.
+Tagging them `recognised_rnc` and naming them `rnc_<address>` left the main figure alone and gave
+a row of its own (1,330,891 bytes, 31.7% of the ROM). Naming them made 28 routines show which
+block they load; one block was loaded by 7 of them, always to the same VRAM slot. Decoding and
+rendering that block (172 tiles of letter and digit shapes) identified it, and it moved to a leaf
+format with a real name: 24.6% to 24.7%. The method-1 unpacker (79 callers) and a timed-screen routine
+were named from the same list.
+
+Negative: matching routine skeletons (the instruction mnemonics from entry to the first return) of
+this game against two Sonic engines found nothing (0 of 328 routines of at least 8 instructions),
+although the same matcher found 13 shared routines between the two Sonic games. Matching only
+helps against code from the same engine family.
+
+* a decoded-but-unidentified block counted for nothing and hid the next step -> `recognised_<format>`
+  blocks, their own progress row, step 12
+* a block loaded from many routines is the one to identify first -> the bullet on recognised blocks
 
 ### Game 3: 1 MiB racing game, 1991
 
