@@ -274,6 +274,11 @@ helps against code from the same engine family.
 * a decoded-but-unidentified block counted for nothing and hid the next step -> `recognised_<format>`
   blocks, their own progress row, step 12
 * a block loaded from many routines is the one to identify first -> the bullet on recognised blocks
+* Z80 pass (Toy Story): the loader copies from one label to the next, 6241 bytes, and the block between them
+  is exactly that size; the same rule found Dragon Ball Z: Buyuu Retsuden's driver (8008 bytes) -> the Z80
+  bullet in step 12
+* a copy loop whose length equals a block's size is exact evidence for the block's identity -> the Z80 bullet
+  in step 12
 
 ### Game 3: 1 MiB racing game, 1991
 

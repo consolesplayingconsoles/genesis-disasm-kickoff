@@ -555,6 +555,13 @@ module, and the rebuild reads it:
   `NAMES`, and every routine that loads one then shows it; a block loaded by
   many routines is the one to identify first (decode it, render it, and give it
   a real name and a leaf format in `BLOCKS`, with the evidence in a comment);
+* **find the Z80 program early**: search the code for writes to `$A11100` (Z80 bus request)
+  and `$A00000` (Z80 RAM). A copy loop into Z80 RAM whose count, or end label minus start
+  label, equals the size of the block it reads is the Z80 sound program (Dragon Ball Z:
+  Buyuu Retsuden, 8008 bytes; Toy Story, 6241 bytes). Tag the block `recognised_z80`, and
+  name the loader and the bus and reset helpers (usually small routines, often duplicated).
+  The data that follows the driver is usually sound data; confirm that from the driver or
+  its loader before tagging it;
 * **only leaf assets stay binary**: art, compressed streams, palettes, samples
   and fill count as named binary blocks (`progress.py`'s `LEAF` formats).
   Anything with structure inside it (pointer and offset tables, sprite
