@@ -1,6 +1,6 @@
 # Things that produced wrong answers
 
-Each of these cost real time on the reference game. They are listed as
+Each of these costs real time. They are listed as
 symptoms, because that is how they present.
 
 **"The patch does nothing."**
@@ -9,14 +9,13 @@ disassembler prints. Patching the printed address hits the high half of an
 immediate word, which reads `$00` and silently does nothing.
 
 **"This constant is the limit."**
-It is one of several. A single logical value existed in seven places on the
-reference game: two cursor bounds on one screen, two on another, a modulo in
-the CPU's random pick, and two more in a demo path. Search for every site that
+It is one of several: a single logical value can sit in cursor bounds on
+several screens, a modulo in a random pick and a demo path. Search for every site that
 compares against the same value before believing you have found the limit.
 
-**"The data is wrong / the translation missed 47 fields."**
-An incomplete decoder invents findings. 46 of those 47 were three glyphs
-missing from the font map. When a scan reports a pattern of failures in the
+**"The data is wrong / the translation missed fields."**
+An incomplete decoder invents findings: most of a long "missed" list can be a
+few glyphs missing from the font map. When a scan reports a pattern of failures in the
 data, suspect your own tables first.
 
 **"The routine at this address belongs to that screen."**
@@ -31,32 +30,29 @@ trampoline. Also, runs of `$00` inside the program area may be live data;
 only regions cross-checked against the trace are known-free.
 
 **"The table is correct, so it is fixed."**
-Verify against observable behaviour, not the artifact you inspected. On the
-reference game the name tables were provably correct while every name a player
-sees came from art, so the correct data changed nothing on screen.
+Verify against observable behaviour, not the artifact you inspected. Name
+tables can be provably correct while every name a player sees comes from art,
+so the correct data changes nothing on screen.
 
 **"That input was broken, so I worked without it."**
 Report every bad file and ask for a replacement, even when the analysis can
-proceed. A `.zip` named for a Mega Drive game has contained a Game Boy ROM, and
-an `.ips` has been a saved HTML page of a GitHub blob view. In the field an
-agent flagged the first, got a corrected file, and quietly dropped the second:
-the dropped one was a third translation, which is the single input the text
-step benefits from most. Verify size, header and magic bytes on everything
-before use.
+proceed. A `.zip` named for a Mega Drive game can contain a Game Boy ROM, and
+an `.ips` can be a saved HTML page of a GitHub blob view. A dropped input can
+be the one the text step benefits from most (a further translation). Verify
+size, header and magic bytes on everything before use.
 
 **"Mid-entropy means code."**
-Game-dependent. In one game the middle of the entropy range was mostly code; in
-another, 45% of the ROM sat at entropy 3 to 5 and was uncompressed level and
-tilemap data plus the script. Read the entropy map against your own trace
+Game-dependent. The middle of the entropy range can be mostly code, or
+uncompressed level and tilemap data plus the script. Read the entropy map against your own trace
 coverage, not against a remembered threshold.
 
 **"The boot code checksums the ROM."**
-One game did and hung on mismatch; another did not verify it at all. Read the
-boot code rather than carrying the assumption between games.
+Some games verify it and hang on mismatch; others do not verify it at all. Read
+the boot code rather than carrying the assumption between games.
 
 **"The listing says the table is at X."**
-For which ROM? The listing was made from the European release and the tools
-read the Japanese one; every address decoded as garbage. Check the hash the
+For which ROM? A listing made from the European release, read by tools on the
+Japanese one, decodes every address as garbage. Check the hash the
 artifact was built from, and move findings between releases by signature.
 
 **"The facts module calls it the portrait art table."**

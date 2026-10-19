@@ -41,25 +41,8 @@ Third-party sources.
 
 ## Read this first: how complete this skill is
 
-**Evidence base: three games**, by different developers. A 1994 fighting game,
-a 1995 licensed platformer and a 1991 racing game. Each was mapped from nothing
-in a day, and each contradicted something the earlier ones taught:
-
-| | game 1 | game 2 | game 3 |
-|---|---|---|---|
-| coverage after resolving idioms | ~5% | 3.26% | 3.63% |
-| dispatch idioms | 3, all self-relative word tables | 3, only one of which overlapped | none needed: 0 unresolved on the first trace |
-| text | custom tilemap glyphs, split alphabet | plain uppercase ASCII | not examined |
-| mid-entropy regions | mostly code | mostly uncompressed level data | not examined |
-| boot checksum | verified, hangs on mismatch | not verified at runtime | valid; not tested |
-| how assets are found | decompressor call sites | level tables | a resource directory of id, pointer, size |
-| ROM mapped after the art pass | 27.7% | 79.2% (one frame sweep took it from 35.8%) | not examined |
-| sprite offsets measured from | the entry holding them | the bank's start, top byte reused | the frame's own header |
-
-Take that table as the real lesson: **the procedure generalised, the specifics
-did not.** Treat every byte pattern here as an example of a shape to look for,
-never as a catalogue to match against. Expect a third game to break something
-else.
+What each game run showed lives in `references/evidence.md`; this file is the procedure. Treat every
+byte pattern here as an example of a shape to look for, never as a catalogue to match against.
 
 When the ROM does something this skill does not describe, that is the expected
 case, not a failure. Write it down in `references/evidence.md`, in its entry
@@ -158,8 +141,7 @@ hardware access: by what the code reads and writes.
 `scripts/trace.py <rom> <out.json>`
 
 Recursive descent from the 68000 vector table. Expect very low coverage on the
-first pass: on the reference game it once reached **0.2%** (the tracer now knows
-more idioms, so expect more). Low is normal and not a sign the tracer is broken.
+first pass. Low is normal and not a sign the tracer is broken.
 
 The number that matters is not the percentage, it is the list of unresolved
 indirect call sites the tracer prints.
@@ -174,8 +156,7 @@ are built from it.
 
 Read those unresolved sites. There will be a small number of recurring shapes.
 Teach the tracer each one and re-run until the unresolved count stops falling.
-This is the highest-leverage step in the whole procedure: on the reference game
-it took coverage from 0.2% to essentially all the code.
+This is the highest-leverage step in the whole procedure.
 
 ### The shapes seen so far
 
@@ -211,9 +192,9 @@ at the first address any entry already points at. Reading on past the end turns
 the handler code into "entries", and the walk then traces art as code.
 
 Note that both games used self-relative words and disagreed about the origin:
-one measured from the entry, the other from the table base. A third measured a
-sprite frame's tile offset from that frame's own header, and game 2's player
-frames measured from the start of their whole bank (step 10). Determine which from
+one measured from the entry, the other from the table base. A third measures a
+sprite frame's tile offset from that frame's own header, and a fourth from the start of a whole
+bank (step 10). Determine which from
 the code that does the addition, never by assuming.
 
 **Bounding a table's length.** Rarely stored. Ways that work: read entries
@@ -224,16 +205,14 @@ built from two fields, such as a state in the high bits and an event in the
 low bits.
 
 **Never take the first bad entry as the end.** Tables have empty slots in the
-middle. A fighter's frame table in game 1 had placeholder entries at 49, 50,
-54 to 57 and 81, and ran to 86: stopping at the first entry that failed an
-independent check (step 10: piece tile counts against art size) cut it at 49.
+middle. A frame table can carry placeholder entries well before its end: stopping at the first entry
+that fails an independent check (step 10: piece tile counts against art size) cuts it short.
 Use such a check to judge each entry, and bound the table by the index range
 the code can produce, or by the next table's start.
 
 **When to stop.** Some sites are genuinely not statically resolvable:
 `jsr (an)` where the register comes from an object field at runtime is a
-per-instance behaviour pointer. Log the shape and move on. In the second game
-that was the entire remaining unresolved set, and it is a legitimate stopping
+per-instance behaviour pointer. Log the shape and move on: it is a legitimate stopping
 point rather than a failure.
 
 ### 4. Decide when to stop chasing coverage
@@ -242,15 +221,12 @@ point rather than a failure.
 art or audio, not code you failed to find.
 
 What the middle of the range means is **game-dependent**, so read it against
-your own trace rather than against a rule of thumb. In game 1, mid-entropy was
-mostly code. In game 2, 45% of the ROM sat at entropy 3 to 5 with almost no
-code in it: uncompressed level, tilemap and object-placement data plus the
-script blob. Assuming mid-entropy meant code there would have sent you hunting
-for a fourth idiom that does not exist.
+your own trace rather than against a rule of thumb. Mid-entropy is code in one engine and
+uncompressed level, tilemap, object-placement and script data in another; assuming code sends
+you hunting for an idiom that does not exist.
 
 Coverage percentages are not comparable between games and are not a target.
-The two games here settled at ~5% and 3.26%, both essentially complete for
-their engines. The number that means something is how many unresolved indirect
+The number that means something is how many unresolved indirect
 sites remain, and whether the remaining ones are genuinely runtime-dependent.
 
 ### 5. Seed by hand, and iterate
@@ -264,8 +240,7 @@ Record every seed in the facts module's `SEEDS` and trace with the module
 (`trace.py <rom> traces/<release>.json tools/facts.py`): the tracked trace then
 regenerates exactly.
 
-On the reference game, the routine handling the main menu cursor was invisible
-until its step table was seeded by hand, several hours in.
+A routine such as the main menu cursor handler stays invisible until its step table is seeded by hand.
 
 ### 6. Diff the versions
 
@@ -282,16 +257,15 @@ at the fraction of the ROM that differs before planning anything around it.
 
 When the releases have diverged that far, **fan translation patches become the
 text oracle instead**, because each one is a diff against a single base. Two
-independent translations landing on the same span is strong evidence, and that
-is how game 2's script region was located after the version diff failed.
+independent translations landing on the same span is strong evidence, and it locates the script
+region when the version diff fails.
 
 If more than one release is available:
 
 * Same-language releases differ by revision; the diff tells you which offsets
   transfer between them.
-* Different-language releases: **the diff regions are the text.** On the
-  reference game, French versus English was 43 KiB across 40 tight regions,
-  and that diff was the entire script map.
+* Different-language releases: **the diff regions are the text.** The tight
+  regions of difference between languages are the script map.
 * Classify each diff region by whether it decodes as glyphs. Where it does, it
   is text. Where it does not, the translator redrew art, which tells you where
   the art for that screen lives.
@@ -301,10 +275,8 @@ If more than one release is available:
 `scripts/ips.py <patch.ips>` summarises which regions a patch writes.
 `scripts/ips_apply.py` applies one so you can re-run the analysis on the result.
 
-A patch labels its own target by what it claims to do. On the reference game,
-five patches identified the palettes, the sprite art, the frame and hitbox
-tables, the sound driver and PCM, and the character-select screen code, before
-any of those had been found by reading.
+A patch labels its own target by what it claims to do: palettes, sprite art, frame and hitbox
+tables, the sound driver and PCM, the character-select screen code.
 
 ### 7b. Reference disassemblies as a name source
 
@@ -340,8 +312,7 @@ longest:     70 bytes   06CCE4 <-> 071E82
 
 **Read the clusters, not the individual runs.** Ten runs landing in one window
 of both ROMs is a shared module; a lone run is a coincidence. The example above
-is real: a Pico title from 1996 sharing a sound driver's per-track tick with a
-Mega Drive game from 1991, found in seconds.
+shows the shape of a hit: a sound driver's per-track tick shared between two titles.
 
 What this does not do yet: 68000 code embeds absolute operands, so a routine
 that references data differs between games wherever it names an address. You
@@ -352,8 +323,7 @@ here.
 
 ### 8. Solve the text encoding
 
-**Check for plain ASCII first.** It costs one grep and game 2 turned out to be
-exactly that: uppercase 7-bit ASCII with no glyph table at all. Do not start
+**Check for plain ASCII first.** It costs one grep. Do not start
 solving a custom encoding until you have ruled out the free case.
 
 If it is not ASCII, two releases saying the same line give you the font. See
@@ -375,24 +345,22 @@ way as code.
 For anything indexed per entity, get the stride from the code that computes it,
 never from how the data looks.
 
-A name in a facts module is a hypothesis until what it points at decodes. On
-the reference game a table labelled "portrait art" pointed at `$FF`-terminated
-byte lists: an animation script, not art.
+A name in a facts module is a hypothesis until what it points at decodes. A table labelled
+"portrait art" can point at `$FF`-terminated byte lists: an animation script, not art.
 
 ### 10. Find the art
 
 **Start from the decompressor's callers, not from a sweep.** Once the art
 decompressor is identified, each call site loads its source from a table a few
 instructions earlier, and the palette table for the same screen is usually next
-to it. On the reference game one select-screen call site gave the portrait
-table and its palette table in minutes.
+to it.
 
 **If you do sweep**, decode at every even offset and filter hard:
 
 * Over code, a decoder happily "succeeds": the output runs to the maximum size
-  at a suspiciously high ratio (5x and up on the reference game).
+  at a suspiciously high ratio (5x and up).
 * Real streams are **contiguous**: each ends exactly where the next begins, at a
-  moderate ratio (about 1.5x to 4.5x there). Contiguity is the strongest signal.
+  moderate ratio (about 1.5x to 4.5x). Contiguity is the strongest signal.
 * A sweep still yields far more than you can identify by eye. Use it to find
   clusters, then go back to the callers.
 
@@ -410,8 +378,8 @@ the real palette to confirm what it is.
 
 **Lay a whole set out before naming anything.** Render every frame of one
 character on one sheet, each labelled with its index and tile count, on a wide
-canvas with the origin drawn. On the reference game index order grouped frames
-by move class, so one sheet named every move without the animation scripts. The
+canvas with the origin drawn. Index order often groups frames
+by move class, so one sheet can name every move without the animation scripts. The
 origin is the character's position, not the body's centre: a lunge draws the
 body well ahead of it, and a frame that looks empty may be off a tight canvas.
 
@@ -425,9 +393,8 @@ found a 10-tile gap between two art sets that held in every zone.
 game the sprite-piece table was only trusted once each frame's piece tile counts
 summed exactly to that frame's decompressed art size. An off-by-one origin in
 the frame table produced plausible but wrong pieces until that check was run.
-On the racing game the same check confirmed two sprite formats: header plus
-tile count times 32 equalled every resource's size, and each frame's tiles ended
-exactly where the next frame's began. A guess is confirmed when sizes add up
+A format is confirmed by sizes: header plus tile count times 32 equals the
+resource's size, and each frame's tiles end exactly where the next frame's begin. A guess is confirmed when sizes add up
 across all entries, not when one entry renders.
 
 **Look for a resource directory.** Some engines keep every graphic and palette
@@ -435,18 +402,18 @@ behind one table of `[id.w][pointer.l][size.w]` entries read by a single lookup
 routine, and load assets by ID. Once found, it labels the whole asset set at
 once. Reach it from the hardware side: a CRAM write is usually a DMA from a RAM
 palette buffer; find the code that fills that buffer, and the value passed to
-the routine it calls is an ID. On the racing game this beat scanning the data
-for palette-shaped runs, which gave 63 candidates and no answer.
+the routine it calls is an ID. This beats scanning the data
+for palette-shaped runs, which gives many candidates and no answer.
 
 **A format that carries its own checksums makes a sweep certain.** Rob
 Northen's ProPack (RNC: the `RNC` magic, a method byte, then the unpacked and
 packed sizes and a CRC-16 of each) checks itself: a candidate that passes both
-CRCs is a block, with no judgement involved. On game 2 a sweep for the magic
-found 264 blocks, all of them CRC-clean, covering most of the ROM's art. Look
+CRCs is a block, with no judgement involved. A sweep for the magic
+finds every block, each CRC-clean. Look
 for a checksum in any header before inventing a plausibility filter.
 
 **Sweep for frames by the header's own arithmetic.** A sprite frame header
-often states its own length: on game 2 the first word is `6 + 6 * count` and
+often states its own length: the first word is `6 + 6 * count` and
 the second is `count`, followed by `count` 6-byte pieces. That relation is a
 signature a random word pair rarely satisfies. Filter the hits hard, then check
 them by eye:
@@ -460,19 +427,16 @@ them by eye:
   real sprites, so the run list was recorded at medium confidence; one false
   one would have meant tightening the filter, not recording it.
 
-That one sweep found 1,406 object frames in 89 runs and took game 2's mapped
-share from 35.8% to 79.2% in an afternoon. Note it maps the bytes; it does not
+Note the sweep maps the bytes; it does not
 name a single frame (step 12: mapped is not done).
 
 **Offsets have another origin: the bank.** After the entry, the table base and
-the frame's header (step 3), game 2's player frames measure each pointer from the start of the
-whole frame bank, and the long's top byte is not address at all but a second
+the frame's header (step 3), player frames can measure each pointer from the start of the
+whole frame bank, and the long's top byte is then not address at all but a second
 field (a literal offset, halved). Mask to 24 bits, then try bank-relative when
-both self-relative readings give garbage. Every frame decoded as "bad" until
-that was found.
+both self-relative readings give garbage.
 
-**One game can store frames two ways.** Game 2's player frames run-length code
-their tiles; its object frames store raw tiles. Do not conclude a format is
+**One game can store frames two ways**: player frames run-length coded, object frames raw. Do not conclude a format is
 wrong because it fails on one family of frames: check whether the other family
 is encoded differently.
 
@@ -497,9 +461,8 @@ meaningful with the bank it set.
 
 Write findings as masked byte signatures with the volatile bytes wildcarded,
 not as fixed addresses. Signatures survive across regional builds; addresses do
-not. On the reference game the same engine sat at completely different
-addresses in the Japanese and European releases, and signature-anchored tools
-worked on both with no second codebase.
+not. The same engine can sit at completely different addresses in the Japanese and European
+releases; signature-anchored tools work on both with no second codebase.
 
 Keep the result as a single per-game facts module: addresses, layouts, and how
 sure you are of each. `references/example-facts.py` shows the shape, with made-up values: keep it at
@@ -529,9 +492,8 @@ absolute ROM reference a label), the bytes between routines as data files split
 at every label and every known block, and a `main.asm` that puts them in
 address order. Every instruction is first assembled on its own and compared
 with its own bytes; one AS encodes differently stays as `dc.w` with the
-instruction in a comment. Then the whole ROM is assembled and compared. On
-game 2 the first run matched: 490 routines, 8 instructions left as `dc.w`
-(data the trace took for code).
+instruction in a comment. Then the whole ROM is assembled and compared. The first run should match, with a few
+instructions left as `dc.w` (data the trace took for code).
 
 **The output is generated, never edited.** The work happens in the facts
 module, and the rebuild reads it:
@@ -557,8 +519,7 @@ module, and the rebuild reads it:
   a real name and a leaf format in `BLOCKS`, with the evidence in a comment);
 * **find the Z80 program early**: search the code for writes to `$A11100` (Z80 bus request)
   and `$A00000` (Z80 RAM). A copy loop into Z80 RAM whose count, or end label minus start
-  label, equals the size of the block it reads is the Z80 sound program (Dragon Ball Z:
-  Buyuu Retsuden, 8008 bytes; Toy Story, 6241 bytes). Tag the block `recognised_z80`, and
+  label, equals the size of the block it reads is the Z80 sound program. Tag the block `recognised_z80`, and
   name the loader and the bus and reset helpers (usually small routines, often duplicated).
   The data that follows the driver is usually sound data; confirm that from the driver or
   its loader before tagging it;
@@ -742,12 +703,11 @@ ahead.
   rebuild leaves it as `dc.w`.
 * **A name or a format is evidence-backed or it is not there.** Never name in
   bulk from guesses to move the main metric: it then measures nothing.
-* **A constant appears in more than one place.** On the reference game a single
-  logical value existed in seven separate sites, and the power-up aura's
-  sprite frame was stored twice, at two unrelated addresses. Assume duplicates until a test
-  proves otherwise. Data duplicates by context too: the racing game held its
-  first stage's palette twice, once for the race start and once in the stage
-  table, and a patch to one copy showed up only seconds into the race.
+* **A constant appears in more than one place.** A single
+  logical value can exist in several separate sites, and a sprite frame can be stored twice at
+  two unrelated addresses. Assume duplicates until a test proves otherwise. Data duplicates by
+  context too: a palette can be held once for the start and once in a table, and a patch to one
+  copy shows up late.
 * **A short absolute address can be RAM.** On the 68000 a `.w` absolute address
   sign-extends, so `$8000` to `$FFFF` mean `$FF8000` to `$FFFFFF`. `lea $B600.w`
   is a RAM table built at runtime, not ROM at `$00B600`.
@@ -766,13 +726,11 @@ ahead.
 * **Runs of `$00` inside the program area are not free space** unless
   cross-checked against the trace.
 * **Check whether boot verifies the header checksum; do not assume either way.**
-  Game 1 verified it and hung on mismatch. Game 2 did not verify it at runtime,
-  and a released translation patch for it leaves the field stale with no visible
-  effect. Read the boot code before deciding whether a checksum matters.
+  A game may verify it and hang on mismatch, or not verify it at runtime, in which case a
+  translation patch can leave the field stale with no visible effect. Read the boot code before deciding whether a checksum matters.
 * **An incomplete decoder invents findings.** If results look like a pattern of
-  failures in the data, suspect your own tables first. On the reference game, a
-  scan reported 47 fields a translation had "missed"; 46 of them were three
-  glyphs missing from the font map.
+  failures in the data, suspect your own tables first: a scan of "missed" fields can be a few glyphs missing from the
+  font map.
 * **Prefer facts the ROM confirms at runtime** over conclusions from reading
   alone. Reading code produced wrong answers three separate times where a
   runtime measurement was right first try. Running an emulator or any other
@@ -785,9 +743,8 @@ ahead.
   a tool can each have been built against a different regional release. Before
   using an address from one of them, compare its ROM hash with the one you are
   reading. If they differ, carry the finding over by signature (step 11), never
-  by address. On the reference game, addresses from a European listing were
-  decoded against the Japanese ROM and produced garbage; the loader's byte
-  signature found the right code immediately.
+  by address: an address from a European listing decoded against the Japanese ROM is garbage,
+  where the loader's byte signature finds the right code.
 
 ## Scripts
 

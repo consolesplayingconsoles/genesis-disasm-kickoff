@@ -22,7 +22,7 @@ Four bytes per slot, each a `bra.w` (`$6000`). Walk slots while the opcode is
 `$6000` and the target lands in ROM. The base may point a slot or two before
 the first entry, so scan forward for the first `$6000`.
 
-Used for top-level game modes on the reference game.
+Used for top-level game modes.
 
 ## 1b. Computed jump into unrolled code
 
@@ -74,9 +74,7 @@ the data.
 Where the origin is the entry, entries of `$0000` are unused slots, not the end of the table. Stop on
 a run of entries whose targets fail a plausibility check, not on the first.
 
-This was the dominant idiom on the reference game, in both code and data. It is
-worth checking for first: resolving it took coverage from 0.2% to nearly all
-the code.
+This idiom can dominate, in both code and data. It is worth checking for first.
 
 Variants seen:
 * `lea base(pc), a0` then `adda.w d0, a0` then `adda.w (a0), a0`

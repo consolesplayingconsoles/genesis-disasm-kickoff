@@ -19,12 +19,10 @@ differing regions are the text. Decode the same address in both, and the pair
 tells you what each tile means, because you know what the sentence says in one
 of them.
 
-On game 1 this gave the entire script map in minutes: 43 KiB of differences in
-40 tight regions.
+The diff regions are the whole script map.
 
-**This fails when the releases are separate compiles.** In game 2, the European
-and American builds differed across 98% of the ROM, so the version diff carried
-no signal at all. Fall back to fan translation patches: each is a diff against
+**This fails when the releases are separate compiles.** Two builds can
+differ across nearly the whole ROM, so the version diff carries no signal at all. Fall back to fan translation patches: each is a diff against
 one base, so it isolates exactly the strings. Two independent translations
 landing on the same span is strong confirmation, and that is what located that
 game's ~44 KiB script region.
@@ -36,11 +34,9 @@ terminated. Consequences worth knowing before you start editing anything:
 
 * A stored string is a pre-rendered line. Trailing spaces pad it to the width
   of its box, so a field has a fixed width and a replacement must fit it.
-  **Both games so far worked this way**, custom glyphs or plain ASCII alike: in
-  game 2 only ~12.5 KiB of the 44 KiB script span actually changed between
-  languages, the rest being shared framing and padding. Fixed-size slots with
-  translators padding or truncating to fit look like the norm rather than the
-  exception.
+  **Expect this**, custom glyphs or plain ASCII alike: only part of a script
+  span changes between languages, the rest being shared framing and padding.
+  Fixed-size slots with translators padding or truncating to fit are the norm.
 * The alphabet is **not contiguous**. It ran `a..k` from one base and `l..z`
   from another, because the glyphs wrap a tile-row boundary. Solve both halves
   separately or you get plausible-looking nonsense.
@@ -75,6 +71,6 @@ in this order, and only then call it art:
 4. raw bytes, for labels stored as byte tile indices
 5. bytes at any constant offset
 
-On the reference game, menu labels, the in-game HUD names and the character
-grid all failed all five: they were pixel art, while a parallel set of names in
-the tables was real text. Both existed at once, for the same characters.
+Menu labels, HUD names and a character grid can fail all five: they are pixel
+art, while a parallel set of names in the tables is real text. Both can exist at
+once, for the same characters.

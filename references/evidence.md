@@ -1,12 +1,12 @@
 # Evidence: games the skill has been run on
 
-One entry per game. The rest of the skill states rules without naming games; what each game
+One entry per game, headed by its title, region and the header's serial (the format the Dreamcast skill's evidence uses). The rest of the skill states rules without naming games; what each game
 showed, and what changed in the skill because of it, lives here. A lesson that comes back on
 several games belongs in the rules; one that stays with a single game is that game's quirk.
 
 The procedure in `SKILL.md` is general, but the *patterns* are a growing list, and the only way
 the list grows is if each new game's surprises get written down. Most valuable of all is a game
-that **contradicts** an earlier one: the second game here disagreed with the first about text
+that **contradicts** an earlier one: Toy Story here disagreed with Dragon Ball Z about text
 encoding, entropy meaning, checksums and cross-version diffing, and each disagreement turned a
 rule into a game-dependent check. Record disagreements first.
 
@@ -29,7 +29,9 @@ Then fold the general parts into the other references, and add any new dispatch 
 
 ## Games
 
-### Game 1: 2 MiB fighting game, 1994 (the reference game)
+### Dragon Ball Z: Buyuu Retsuden / L'Appel du Destin (Europe, French ROM), GM T-133016-00
+
+2 MiB fighting game, 1994.
 
 The game this skill was extracted from. Disassembled from nothing in a day,
 with three regional/translated builds and six third-party patches available.
@@ -45,7 +47,7 @@ with three regional/translated builds and six third-party patches available.
 | unresolved indirect sites at the end | 5 |
 
 5% sounded like failure and was not: the entropy map showed the rest was art
-and audio. Coverage percentage is a bad target; the unresolved-site count is
+and audio (the mid-entropy bands were mostly code). Coverage percentage is a bad target; the unresolved-site count is
 the useful one.
 
 #### Engine shape
@@ -66,7 +68,7 @@ alphabet ranges, proportional glyphs with continuation tiles, separate case
 blocks, and attribute bits that differed between the Japanese and European
 builds of the same game.
 
-Solved from two language versions of the same lines. Punctuation identified
+Solved from two language versions of the same lines (French versus English was 43 KiB across 40 tight regions, the entire script map). Punctuation identified
 afterwards from context, by frequency, inside runs of known letters.
 
 A second, parallel set of the same names existed as **pixel art** for the HUD
@@ -88,7 +90,9 @@ in one patch's write offsets.
 3. Patching the address a disassembler printed rather than where the immediate
    byte sits.
 4. Trusting an incomplete font map, which turned three missing glyphs into 46
-   false findings about the data.
+   false findings about the data (46 of the 47 fields a scan reported as missed).
+5. The main menu cursor routine stayed invisible until its step table was seeded
+   by hand, several hours in.
 
 #### Art pass (later, Japanese ROM)
 
@@ -102,14 +106,16 @@ Art was mapped in a second session, to lift sprites into another game.
   from the feet, and a size byte. Trusted only once each frame's piece tile
   counts summed to its art size.
 * **Portraits**: select-screen portraits are 80-tile streams, 10x8 row-major,
-  from their own table next to the loader's palette table. The big story
+  from their own table next to the loader's palette table (both found from one
+  select-screen call site in minutes). The big story
   portraits are nametable-placed and look scrambled without their map.
 * **Items**: none. A whole-ROM sweep found fighters, portraits, story art, stage
   backgrounds and hit effects; a fighting game has no pickups.
 
 What cost time: decoding addresses from the European listing against the
 Japanese ROM, a facts label that named an animation script as art, and a
-whole-ROM sweep that should have started from the decompressor's callers.
+whole-ROM sweep that should have started from the decompressor's callers (over
+code the decoder "succeeds" at 5x and up; real streams ran about 1.5x to 4.5x).
 
 #### Animation pass (later, same ROM)
 
@@ -123,7 +129,8 @@ into another game. The animation scripts are still not located.
   reading, not a fact from the animation table.
 * **The frame table bounds itself**: its length is not stored, and the first
   index where the piece tile counts stop summing to the art size is the end
-  (49 frames for the first fighter).
+  (49 frames for the first fighter, though the table ran to 86 with placeholder
+  entries at 49, 50, 54 to 57 and 81).
 * **The origin is the fighter's position, not the body's centre**: a lunging
   kick draws the body about 24px ahead of it, and two frames looked empty
   because they fell outside a canvas sized for the standing frame.
@@ -166,7 +173,9 @@ that loads the block.
 
 * a decoder that never rejects is not a detector -> format comes from the loading routine, not from a scan
 
-### Game 2: 4 MiB licensed platformer, 1995/96
+### Toy Story (USA), GM T-239046-00
+
+4 MiB licensed platformer, 1995/96.
 
 Mapped by a different agent session from `SKILL.md` alone. Its own full write-up
 lives with that project; this entry records what it changed in the skill.
@@ -176,7 +185,7 @@ every specific while confirming the procedure.
 
 #### What it contradicted
 
-| | game 1 | game 2 |
+| | Dragon Ball Z | Toy Story |
 |---|---|---|
 | text encoding | custom tilemap glyphs, split alphabet, proportional | plain uppercase 7-bit ASCII, no glyph table |
 | mid-entropy regions | mostly code | 45% of ROM at H 3-5, almost no code: level and tilemap data |
@@ -193,7 +202,7 @@ now marked as game-dependent, with both observations given.
   call site and produces garbage if read as one. Distinguishing test added to
   `references/idioms.md`.
 * **Self-relative word tables have two origins**: the entry's own address in
-  game 1, the table's base address in game 2. The origin must be read from the
+  Dragon Ball Z, the table's base address in Toy Story. The origin must be read from the
   instruction that does the addition.
 * **Bounding a table by the index masks** (`andi.w #mask,dn`) rather than
   scanning entries, which is the only sound method when the index is built from
@@ -204,6 +213,8 @@ now marked as game-dependent, with both observations given.
 * **Fan patches as the text oracle** when versions have diverged too far to
   diff: two independent translations landing on the same span confirmed the
   script region.
+* **The first rebuild matched**: 490 routines, 8 instructions left as `dc.w` (data the
+  trace took for code).
 
 #### Process failures worth keeping
 
@@ -280,14 +291,16 @@ helps against code from the same engine family.
 * a copy loop whose length equals a block's size is exact evidence for the block's identity -> the Z80 bullet
   in step 12
 
-### Game 3: 1 MiB racing game, 1991
+### OutRun (Japan, USA), GM 00004052-00
+
+1 MiB racing game, 1991.
 
 Mapped for a graphics mod: find the player car's driver and passenger sprites and
 the roadside ground colours. Text and sound were not examined.
 
 #### What it contradicted
 
-| | games 1 and 2 | game 3 |
+| | Dragon Ball Z and Toy Story | OutRun |
 |---|---|---|
 | dispatch idioms | three each, the highest-leverage step | none needed: 3.63% coverage, 0 unresolved sites on the first trace |
 | how assets are found | decompressor callers, level tables | one resource directory: `[id.w][pointer.l][size.w]`, 221 entries, one lookup routine |
@@ -321,4 +334,5 @@ the roadside ground colours. Text and sound were not examined.
 * Assuming a screenshot showed the full screen. It was a crop at 12 pixels per
   console pixel; measuring the run lengths first would have matched on the first
   try.
-* Scanning for palette-shaped data instead of following the CRAM write back.
+* Scanning for palette-shaped data (63 candidates, no answer) instead of following the CRAM write back.
+

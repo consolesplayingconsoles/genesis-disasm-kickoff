@@ -24,9 +24,9 @@ Then merge the differing byte ranges into regions. Then classify each region by 
 Both answers are useful. The second is how you find where a screen's graphics
 live without touching the graphics code.
 
-Watch for releases that are not just translations. On the reference game, the
-Japanese and European builds differed across 500 KiB and every engine anchor
-sat at a different address, so offsets from one did not transfer to the other.
+Watch for releases that are not just translations. Japanese and
+European builds can differ across hundreds of KiB with every engine anchor at a
+different address, so offsets from one do not transfer to the other.
 Verify that before assuming a finding carries over.
 
 ## What else is worth comparing against
@@ -53,8 +53,8 @@ An IPS or BPS patch is a labelled dataset: someone else already found the thing
 they changed, and the offsets say where it is.
 
 Summarise the regions with `scripts/ips.py`. Then read the patch's own
-description and attach that meaning to those offsets. On the reference game
-this identified, without any code reading:
+description and attach that meaning to those offsets. This can identify,
+without any code reading:
 
 | patch's stated purpose | what its offsets marked |
 |---|---|
@@ -68,10 +68,9 @@ result. Comparing a structural fact before and after (a table's entry count, a
 bound, a layout) answers questions about the patch far faster than reading it.
 
 Watch what patches do about the header checksum, and read it as evidence rather
-than as a rule. In game 1 every patch disabled the boot checksum, which told us
-the check existed and where. In game 2 a released patch simply leaves the
-checksum field stale, which tells you the opposite: that build does not verify
-it at runtime.
+than as a rule. A patch that disables the boot checksum tells you the check exists and where;
+a patch that simply leaves the checksum field stale tells you the opposite:
+that build does not verify it at runtime.
 
 ## Cheat databases
 
